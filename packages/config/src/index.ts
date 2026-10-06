@@ -11,10 +11,12 @@ export {
   loadWorkerConfigOrExit,
   requireAuthConfig,
   requireEmbeddingConfig,
+  requireGenerationConfig,
   type AppConfig,
   type AuthConfig,
   type DatabaseConfig,
   type EmbeddingConfig,
+  type GenerationConfig,
 } from './load-config.js';
 export { Secret } from './secret.js';
 export {

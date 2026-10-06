@@ -61,6 +61,18 @@ export interface AppConfig {
     sizeTokens: number;
     overlapTokens: number;
   };
+  retrieval: {
+    candidates: number;
+    maxEvidence: number;
+    maxPerDocument: number;
+  };
+  evidence: {
+    minTopScore: number;
+    minHitScore: number;
+  };
+  chat: {
+    questionMaxChars: number;
+  };
 }
 
 /** Thrown when configuration is missing or invalid. The message never contains configuration values. */
@@ -91,6 +103,8 @@ function describeIssue(
       return `${name}: must be one of ${issue.values.join(', ')}`;
     case 'too_small':
       return `${name}: must not be empty or below the minimum`;
+    case 'too_big':
+      return `${name}: must not exceed the maximum`;
     case 'invalid_type':
       return `${name}: must be a ${issue.expected}`;
     default:
@@ -122,6 +136,11 @@ function parseEnv<T extends z.ZodType>(
 /** Validates the environment and returns typed configuration, or throws ConfigValidationError. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const e = parseEnv(envSchema, env);
+  if (e.EVIDENCE_MIN_HIT_SCORE > e.EVIDENCE_MIN_TOP_SCORE) {
+    throw new ConfigValidationError([
+      'EVIDENCE_MIN_HIT_SCORE: must not exceed EVIDENCE_MIN_TOP_SCORE',
+    ]);
+  }
   if (e.CHUNK_OVERLAP_TOKENS >= e.CHUNK_SIZE_TOKENS) {
     throw new ConfigValidationError([
       'CHUNK_OVERLAP_TOKENS: must be smaller than CHUNK_SIZE_TOKENS',
@@ -182,6 +201,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     chunking: {
       sizeTokens: e.CHUNK_SIZE_TOKENS,
       overlapTokens: e.CHUNK_OVERLAP_TOKENS,
+    },
+    retrieval: {
+      candidates: e.RETRIEVAL_CANDIDATES,
+      maxEvidence: e.RETRIEVAL_MAX_EVIDENCE,
+      maxPerDocument: e.RETRIEVAL_MAX_PER_DOCUMENT,
+    },
+    evidence: {
+      minTopScore: e.EVIDENCE_MIN_TOP_SCORE,
+      minHitScore: e.EVIDENCE_MIN_HIT_SCORE,
+    },
+    chat: {
+      questionMaxChars: e.QUESTION_MAX_CHARS,
     },
   };
 }
@@ -256,6 +287,40 @@ export function requireEmbeddingConfig(config: AppConfig): EmbeddingConfig {
   };
 }
 
+export interface GenerationConfig {
+  provider: NonNullable<Env['AI_PROVIDER']>;
+  baseUrl: string;
+  apiKey: Secret | undefined;
+  model: string;
+  maxOutputTokens: number;
+  requestTimeoutMs: number;
+}
+
+/**
+ * Returns the answer-generation settings required by the API (RAG).
+ * Throws ConfigValidationError naming any missing variables.
+ */
+export function requireGenerationConfig(config: AppConfig): GenerationConfig {
+  const { provider, generationModel } = config.ai;
+  const missing = [
+    ['AI_PROVIDER', provider],
+    ['AI_GENERATION_MODEL', generationModel],
+  ]
+    .filter(([, value]) => value === undefined)
+    .map(([name]) => `${String(name)}: is required`);
+  if (missing.length > 0 || !provider || !generationModel) {
+    throw new ConfigValidationError(missing);
+  }
+  return {
+    provider,
+    baseUrl: config.ai.baseUrl,
+    apiKey: config.ai.apiKey,
+    model: generationModel,
+    maxOutputTokens: config.ai.maxOutputTokens,
+    requestTimeoutMs: config.ai.requestTimeoutMs,
+  };
+}
+
 export interface DatabaseConfig {
   url: Secret;
 }
@@ -291,14 +356,32 @@ export function loadConfigOrExit(
   return exitOnConfigError(() => loadConfig(env));
 }
 
-/** Like loadConfigOrExit, for the API: also requires authentication settings. */
+/** Like loadConfigOrExit, for the API: also requires authentication, query-embedding and generation settings. */
 export function loadApiConfigOrExit(env: NodeJS.ProcessEnv = process.env): {
   config: AppConfig;
   auth: AuthConfig;
+  embedding: EmbeddingConfig;
+  generation: GenerationConfig;
 } {
   return exitOnConfigError(() => {
     const config = loadConfig(env);
-    return { config, auth: requireAuthConfig(config) };
+    const problems: string[] = [];
+    const collect = <T>(require: () => T): T | undefined => {
+      try {
+        return require();
+      } catch (error) {
+        if (!(error instanceof ConfigValidationError)) throw error;
+        problems.push(...error.problems);
+        return undefined;
+      }
+    };
+    const auth = collect(() => requireAuthConfig(config));
+    const embedding = collect(() => requireEmbeddingConfig(config));
+    const generation = collect(() => requireGenerationConfig(config));
+    if (!auth || !embedding || !generation) {
+      throw new ConfigValidationError([...new Set(problems)]);
+    }
+    return { config, auth, embedding, generation };
   });
 }
 

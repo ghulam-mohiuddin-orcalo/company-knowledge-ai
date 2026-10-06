@@ -3,7 +3,7 @@ import {
   makeDocx,
   makeEncryptedDocx,
   makePdf,
-} from '../../testing/document-fixtures.js';
+} from '../fixtures/document-fixtures.js';
 import { DocxExtractor } from './docx-extractor.js';
 import { extractDocument } from './extract-document.js';
 import { ExtractionError } from './extractor.js';

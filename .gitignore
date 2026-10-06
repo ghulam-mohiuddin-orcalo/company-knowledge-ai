@@ -10,6 +10,7 @@ next-env.d.ts
 
 # Test output
 coverage/
+eval-reports/
 
 # Environment files (never commit secrets)
 .env

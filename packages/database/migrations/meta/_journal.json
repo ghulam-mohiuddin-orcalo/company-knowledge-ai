@@ -29,6 +29,13 @@
       "when": 1791282913533,
       "tag": "0003_document_chunks",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791284895935,
+      "tag": "0004_conversations_messages",
+      "breakpoints": true
     }
   ]
 }

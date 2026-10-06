@@ -14,13 +14,13 @@ import {
   TOKEN_COUNTER,
   WORKER_CONFIG,
 } from '../tokens.js';
-import { chunkSegments } from './chunking/chunker.js';
-import type { TokenCounter } from './chunking/token-counter.js';
-import { extractDocument } from './extraction/extract-document.js';
 import {
+  chunkSegments,
   type DocumentExtractor,
+  extractDocument,
   ExtractionError,
-} from './extraction/extractor.js';
+  type TokenCounter,
+} from '@cka/ingestion';
 import {
   type ClaimedJob,
   IngestionJobsRepository,

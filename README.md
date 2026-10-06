@@ -20,7 +20,8 @@ packages/
   config/           # shared configuration primitives
   database/         # backend-only Drizzle schema + SQL migrations
   storage/          # backend-only private object storage (S3-compatible)
-  ai/               # backend-only AI provider adapters (embeddings)
+  ai/               # backend-only AI provider adapters (embeddings, generation)
+  ingestion/        # backend-only extraction, normalization, chunking
   eslint-config/    # shared ESLint flat configs
   tsconfig/         # shared TypeScript configs
 docs/               # requirements, design and backlog
@@ -82,6 +83,14 @@ The API and worker validate their environment at startup through `packages/confi
 - The worker (`apps/worker`) polls PostgreSQL for jobs (no broker): storage read → extraction (PDF pages, DOCX sections, TXT) → normalization → token-aware chunking → embeddings → chunks with `vector(1536)` written in the same transaction as `READY`. Retries are bounded with backoff; crashed jobs are reclaimed after a lease; failures leave `FAILED` with a safe error code.
 - Embeddings use an OpenAI-compatible API (`AI_PROVIDER=openai-compatible`, `text-embedding-3-small`). Tests use a deterministic offline provider.
 
+## Conversations and grounded answers (RAG)
+
+- `POST /v1/conversations`, `GET /v1/conversations` and `GET /v1/conversations/:id/messages` (MEMBER): own conversations only.
+- `POST /v1/conversations/:id/messages` (MEMBER, owner): body `{ "content": "question" }`. The optional `Idempotency-Key` header makes retries safe. The response is `{ question, answer }`; `answer.outcome` is `ANSWERED` (the grounded answer cites `[SOURCE_n]`) or `NO_ANSWER` (_"The answer is not available in the current knowledge base."_).
+- Flow: tenant-scoped pgvector retrieval over READY documents → evidence policy (`EVIDENCE_*` thresholds) → if insufficient, the no-answer with no LLM call → otherwise a prompt with trusted rules and the evidence as delimited untrusted data → answer validation. An answer must cite provided sources; uncited replies and replies that leak the instructions become the no-answer.
+- Generation uses an OpenAI-compatible Chat Completions API (`AI_GENERATION_MODEL`). Provider failures return `503 AI_PROVIDER_UNAVAILABLE`, and retrying with the same `Idempotency-Key` completes the exchange.
+- `pnpm eval` runs the retrieval and RAG regression evaluation; see [docs/rag-evaluation](docs/rag-evaluation/README.md).
+
 ## Health checks
 
 - `GET /health` (API): liveness only; never depends on the database or AI providers.
@@ -101,7 +110,7 @@ The schema is defined with Drizzle in `packages/database/src/schema.ts`; version
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
 - **quality**: frozen-lockfile install, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
-- **database**: starts the `postgres` service from `infra/docker/compose.yaml`, runs `pnpm db:migrate` against the empty database, then `pnpm test:integration` and the cross-tenant security suite (`pnpm test:security`).
+- **database**: starts the local stack from `infra/docker/compose.yaml`, runs `pnpm db:migrate` against the empty database, then `pnpm test:integration`, the security suite (`pnpm test:security`) and the offline RAG evaluation gate (`pnpm eval`).
 
 Any failing step fails the pull request check. Make both jobs required status checks in branch protection.
 

@@ -17,7 +17,7 @@ import { ApiError } from '../common/api-error.js';
 import { CurrentPrincipal, type Principal } from '../tenancy/principal.js';
 import { TenantScope } from '../tenancy/tenant-scope.js';
 import type { DocumentView } from './documents.repository.js';
-import { parsePageRequest } from './pagination.js';
+import { parsePageRequest } from '../common/pagination.js';
 import {
   DocumentsService,
   type UploadedFile as UploadedDocumentFile,

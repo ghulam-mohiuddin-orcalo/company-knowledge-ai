@@ -247,3 +247,89 @@ export const documentChunks = pgTable(
     // size/latency requires it (TDD §9.1).
   ],
 );
+
+export const conversations = pgTable(
+  'conversations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'restrict' }),
+    // Owner: MVP conversations are private to the user who created them.
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    title: text('title'),
+    ...timestamps,
+  },
+  (table) => [
+    index('conversations_organization_id_user_id_updated_at_idx').on(
+      table.organizationId,
+      table.userId,
+      table.updatedAt.desc(),
+    ),
+    unique('conversations_id_organization_id_key').on(
+      table.id,
+      table.organizationId,
+    ),
+  ],
+);
+
+export const messageRole = pgEnum('message_role', ['USER', 'ASSISTANT']);
+
+// Assistant outcome: a grounded answer, or the explicit no-answer response.
+export const messageOutcome = pgEnum('message_outcome', [
+  'ANSWERED',
+  'NO_ANSWER',
+]);
+
+export const messages = pgTable(
+  'messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull(),
+    conversationId: uuid('conversation_id').notNull(),
+    role: messageRole('role').notNull(),
+    content: text('content').notNull(),
+    outcome: messageOutcome('outcome'),
+    // The user message an assistant message answers (one reply per question).
+    replyToMessageId: uuid('reply_to_message_id').unique(
+      'messages_reply_to_message_id_key',
+    ),
+    // Client idempotency key for user messages (retries return the same exchange).
+    requestId: text('request_id'),
+    model: text('model'),
+    latencyMs: integer('latency_ms'),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('messages_conversation_id_created_at_idx').on(
+      table.conversationId,
+      table.createdAt,
+    ),
+    unique('messages_conversation_id_request_id_key').on(
+      table.conversationId,
+      table.requestId,
+    ),
+    // A message always belongs to its conversation's organization.
+    foreignKey({
+      name: 'messages_conversation_tenant_fk',
+      columns: [table.conversationId, table.organizationId],
+      foreignColumns: [conversations.id, conversations.organizationId],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'messages_reply_to_message_id_fk',
+      columns: [table.replyToMessageId],
+      foreignColumns: [table.id],
+    }).onDelete('restrict'),
+    check(
+      'messages_role_fields_valid',
+      sql`(${table.role} = 'USER' AND ${table.outcome} IS NULL AND ${table.replyToMessageId} IS NULL)
+        OR (${table.role} = 'ASSISTANT' AND ${table.outcome} IS NOT NULL AND ${table.replyToMessageId} IS NOT NULL AND ${table.requestId} IS NULL)`,
+    ),
+  ],
+);

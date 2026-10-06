@@ -1,4 +1,9 @@
-import { loadConfig, requireAuthConfig } from '@cka/config';
+import {
+  loadConfig,
+  requireAuthConfig,
+  requireEmbeddingConfig,
+  requireGenerationConfig,
+} from '@cka/config';
 import type { ApiConfig } from '../config/config.module.js';
 
 /** Valid API configuration for tests; no services are contacted until used. */
@@ -18,7 +23,17 @@ export function createTestConfig(overrides: NodeJS.ProcessEnv = {}): ApiConfig {
     AUTH_ISSUER_URL: 'https://idp.test/',
     AUTH_AUDIENCE: 'cka-api-test',
     AUTH_JWKS_URL: 'http://127.0.0.1:9/jwks.json',
+    AI_PROVIDER: 'openai-compatible',
+    AI_BASE_URL: 'http://127.0.0.1:9/v1',
+    AI_EMBEDDING_MODEL: 'text-embedding-3-small',
+    AI_EMBEDDING_DIMENSIONS: '1536',
+    AI_GENERATION_MODEL: 'gpt-test',
     ...overrides,
   });
-  return { config, auth: requireAuthConfig(config) };
+  return {
+    config,
+    auth: requireAuthConfig(config),
+    embedding: requireEmbeddingConfig(config),
+    generation: requireGenerationConfig(config),
+  };
 }

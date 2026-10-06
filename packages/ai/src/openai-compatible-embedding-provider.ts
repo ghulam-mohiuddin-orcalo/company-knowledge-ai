@@ -3,6 +3,7 @@ import {
   EmbeddingProviderError,
   type EmbeddingProvider,
 } from './embedding-provider.js';
+import { classifyFetchFailure, classifyHttpStatus } from './provider-errors.js';
 
 interface EmbeddingsResponse {
   data?: Array<{ index?: unknown; embedding?: unknown }>;
@@ -63,18 +64,14 @@ export class OpenAiCompatibleEmbeddingProvider implements EmbeddingProvider {
         },
       );
     } catch (error) {
-      throw new EmbeddingProviderError(
-        error instanceof Error && error.name === 'TimeoutError'
-          ? 'PROVIDER_TIMEOUT'
-          : 'PROVIDER_UNAVAILABLE',
-      );
+      throw new EmbeddingProviderError(classifyFetchFailure(error));
     }
 
     if (!response.ok) {
       // The body is discarded: it may echo inputs or account details.
       await response.body?.cancel();
       throw new EmbeddingProviderError(
-        classifyStatus(response.status),
+        classifyHttpStatus(response.status),
         response.status,
       );
     }
@@ -111,12 +108,4 @@ export class OpenAiCompatibleEmbeddingProvider implements EmbeddingProvider {
     }
     return vectors;
   }
-}
-
-function classifyStatus(status: number) {
-  if (status === 401 || status === 403) return 'PROVIDER_AUTH_FAILED' as const;
-  if (status === 408) return 'PROVIDER_TIMEOUT' as const;
-  if (status === 429) return 'PROVIDER_RATE_LIMITED' as const;
-  if (status >= 500) return 'PROVIDER_UNAVAILABLE' as const;
-  return 'PROVIDER_REJECTED_REQUEST' as const;
 }

@@ -7,6 +7,7 @@ const secret = requiredString.transform((value) => new Secret(value));
 const url = z.url();
 const positiveInt = z.coerce.number().int().positive();
 const nonNegativeInt = z.coerce.number().int().min(0);
+const similarity = z.coerce.number().min(-1).max(1);
 const booleanFlag = z
   .enum(['true', 'false'])
   .transform((value) => value === 'true');
@@ -111,6 +112,20 @@ export const envSchema = z.object({
   // Chunking (TDD §12.1): tuned against the evaluation corpus, not fixed requirements.
   CHUNK_SIZE_TOKENS: positiveInt.default(800),
   CHUNK_OVERLAP_TOKENS: nonNegativeInt.default(120),
+
+  // Retrieval (TDD §14): candidates fetched, evidence passed on, per-document cap.
+  RETRIEVAL_CANDIDATES: positiveInt.default(10),
+  RETRIEVAL_MAX_EVIDENCE: positiveInt.default(5),
+  RETRIEVAL_MAX_PER_DOCUMENT: positiveInt.default(3),
+
+  // Evidence sufficiency (TDD §15). Cosine-similarity thresholds depend on the
+  // embedding model; defaults target text-embedding-3-small and must be
+  // calibrated with the evaluation corpus (pnpm eval) for the configured model.
+  EVIDENCE_MIN_TOP_SCORE: similarity.default(0.35),
+  EVIDENCE_MIN_HIT_SCORE: similarity.default(0.25),
+
+  // Chat
+  QUESTION_MAX_CHARS: positiveInt.default(2000),
 });
 
 export type Env = z.output<typeof envSchema>;

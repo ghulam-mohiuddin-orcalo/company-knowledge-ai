@@ -12,7 +12,7 @@ import {
 import { type ObjectStorage, ObjectNotFoundError } from '@cka/storage';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { makeDocx, makePdf } from '../testing/document-fixtures.js';
+import { makeDocx, makePdf } from '@cka/ingestion/fixtures';
 import { seedDocument, seedTenant } from '../testing/seed.js';
 import { createTestWorkerConfig } from '../testing/test-config.js';
 import {

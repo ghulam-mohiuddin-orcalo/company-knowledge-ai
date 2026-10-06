@@ -6,10 +6,13 @@ import { AuthorizationGuard } from './authorization/authorization.guard.js';
 import { AuthorizationModule } from './authorization/authorization.module.js';
 import { ErrorEnvelopeFilter } from './common/error-envelope.filter.js';
 import { type ApiConfig, ConfigModule } from './config/config.module.js';
+import { ConversationsModule } from './conversations/conversations.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MeModule } from './me/me.module.js';
+import { RagModule } from './rag/rag.module.js';
+import { RetrievalModule } from './retrieval/retrieval.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
@@ -31,6 +34,9 @@ export class AppModule {
         HealthModule,
         MeModule,
         DocumentsModule,
+        RetrievalModule,
+        ConversationsModule,
+        RagModule,
       ],
       providers: [
         { provide: APP_FILTER, useClass: ErrorEnvelopeFilter },

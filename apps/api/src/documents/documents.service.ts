@@ -10,7 +10,7 @@ import {
   type DocumentView,
   DocumentsRepository,
 } from './documents.repository.js';
-import { encodeCursor, type PageRequest } from './pagination.js';
+import { encodeCursor, type PageRequest } from '../common/pagination.js';
 import {
   assertNotEmpty,
   resolveDocumentType,

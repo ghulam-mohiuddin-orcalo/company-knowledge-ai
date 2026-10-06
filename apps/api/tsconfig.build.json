@@ -3,5 +3,11 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "exclude": ["node_modules", "dist", "**/*.spec.ts", "src/testing"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
+    "src/testing",
+    "src/evaluation"
+  ]
 }

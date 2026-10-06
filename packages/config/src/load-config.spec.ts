@@ -5,6 +5,7 @@ import {
   loadDatabaseConfig,
   requireAuthConfig,
   requireEmbeddingConfig,
+  requireGenerationConfig,
 } from './load-config.js';
 
 const DB_PASSWORD = 'db-password-should-not-leak';
@@ -95,6 +96,25 @@ describe('loadConfig', () => {
     expect(captureError({ ...validEnv, DATABASE_URL: '  ' }).problems).toEqual([
       'DATABASE_URL: is required',
     ]);
+  });
+
+  it('validates evidence thresholds', () => {
+    expect(loadConfig(validEnv).evidence).toEqual({
+      minTopScore: 0.35,
+      minHitScore: 0.25,
+    });
+    expect(
+      captureError({
+        ...validEnv,
+        EVIDENCE_MIN_TOP_SCORE: '0.2',
+        EVIDENCE_MIN_HIT_SCORE: '0.3',
+      }).problems,
+    ).toEqual([
+      'EVIDENCE_MIN_HIT_SCORE: must not exceed EVIDENCE_MIN_TOP_SCORE',
+    ]);
+    expect(
+      captureError({ ...validEnv, EVIDENCE_MIN_TOP_SCORE: '2' }).problems,
+    ).toEqual(['EVIDENCE_MIN_TOP_SCORE: must not exceed the maximum']);
   });
 
   it('validates chunking settings', () => {
@@ -266,5 +286,32 @@ describe('requireEmbeddingConfig', () => {
     expect(
       captureError({ ...validEnv, AI_PROVIDER: 'some-vendor' }).problems,
     ).toEqual(['AI_PROVIDER: must be one of openai-compatible']);
+  });
+});
+
+describe('requireGenerationConfig', () => {
+  it('names every missing generation variable', () => {
+    expect(() => requireGenerationConfig(loadConfig(validEnv))).toThrow(
+      new ConfigValidationError([
+        'AI_PROVIDER: is required',
+        'AI_GENERATION_MODEL: is required',
+      ]),
+    );
+  });
+
+  it('returns generation settings with defaults', () => {
+    expect(
+      requireGenerationConfig(
+        loadConfig({
+          ...validEnv,
+          AI_PROVIDER: 'openai-compatible',
+          AI_GENERATION_MODEL: 'gpt-test',
+        }),
+      ),
+    ).toMatchObject({
+      model: 'gpt-test',
+      maxOutputTokens: 1024,
+      requestTimeoutMs: 30000,
+    });
   });
 });

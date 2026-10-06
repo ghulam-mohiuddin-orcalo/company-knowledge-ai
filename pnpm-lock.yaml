@@ -172,6 +172,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@cka/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@cka/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -209,6 +212,9 @@ importers:
       '@cka/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@cka/ingestion':
+        specifier: workspace:*
+        version: link:../../packages/ingestion
       '@cka/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
@@ -291,6 +297,9 @@ importers:
       '@cka/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@cka/ingestion':
+        specifier: workspace:*
+        version: link:../../packages/ingestion
       '@cka/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -303,15 +312,6 @@ importers:
       drizzle-orm:
         specifier: ^0.45.3
         version: 0.45.3(@types/pg@8.23.1)(pg@8.23.1)
-      js-tiktoken:
-        specifier: ^1.0.21
-        version: 1.0.21
-      mammoth:
-        specifier: ^1.10.0
-        version: 1.13.0
-      pdfjs-dist:
-        specifier: ^6.0.0
-        version: 6.4.299
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -343,9 +343,6 @@ importers:
       eslint:
         specifier: ^9.39.0
         version: 9.39.5(supports-color@7.2.0)
-      jszip:
-        specifier: ^3.10.1
-        version: 3.10.2
       pg:
         specifier: ^8.23.1
         version: 8.23.1
@@ -481,6 +478,40 @@ importers:
       typescript-eslint:
         specifier: ^8.60.0
         version: 8.71.0(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)
+
+  packages/ingestion:
+    dependencies:
+      js-tiktoken:
+        specifier: ^1.0.21
+        version: 1.0.21
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.2
+      mammoth:
+        specifier: ^1.10.0
+        version: 1.13.0
+      pdfjs-dist:
+        specifier: ^6.0.0
+        version: 6.4.299
+    devDependencies:
+      '@cka/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@cka/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.19.1
+      eslint:
+        specifier: ^9.39.0
+        version: 9.39.5(supports-color@7.2.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@24.19.1)(vite@8.3.2(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15))
 
   packages/storage:
     dependencies:

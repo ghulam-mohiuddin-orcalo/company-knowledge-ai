@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { AppModule } from '../app.module.js';
 import { createTestConfig } from './test-config.js';
 import type { TestIdentityProvider } from './test-identity-provider.js';
@@ -13,7 +13,7 @@ export interface TestApi {
       token?: string;
       headers?: Record<string, string>;
       method?: string;
-      body?: FormData;
+      body?: FormData | string;
     },
   ): Promise<{ status: number; body: unknown; text: string }>;
   close(): Promise<void>;
@@ -24,13 +24,18 @@ export async function startTestApi(
   databaseUrl: string,
   idp: TestIdentityProvider,
   env: NodeJS.ProcessEnv = {},
+  override: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b,
 ): Promise<TestApi> {
-  const app = await NestFactory.create(
-    AppModule.forRoot(
-      createTestConfig({ DATABASE_URL: databaseUrl, ...idp.env(), ...env }),
-    ),
-    { logger: false },
-  );
+  const moduleRef = await override(
+    Test.createTestingModule({
+      imports: [
+        AppModule.forRoot(
+          createTestConfig({ DATABASE_URL: databaseUrl, ...idp.env(), ...env }),
+        ),
+      ],
+    }),
+  ).compile();
+  const app = moduleRef.createNestApplication({ logger: false });
   await app.listen(0, '127.0.0.1');
   const baseUrl = await app.getUrl();
 

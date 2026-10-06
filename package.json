@@ -12,6 +12,7 @@
     "test": "pnpm build:packages && pnpm -r test",
     "test:integration": "pnpm build:packages && pnpm -r test:integration",
     "test:security": "pnpm build:packages && pnpm -r test:security",
+    "eval": "pnpm build:packages && pnpm --filter @cka/api eval",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @cka/database db:generate",

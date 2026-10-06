@@ -11,9 +11,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:security": "vitest run --config vitest.security.config.ts"
+    "test:security": "vitest run --config vitest.security.config.ts",
+    "eval": "vitest run --config vitest.eval.config.ts"
   },
   "dependencies": {
+    "@cka/ai": "workspace:*",
     "@cka/config": "workspace:*",
     "@cka/database": "workspace:*",
     "@cka/storage": "workspace:*",
@@ -28,6 +30,7 @@
   },
   "devDependencies": {
     "@cka/eslint-config": "workspace:*",
+    "@cka/ingestion": "workspace:*",
     "@cka/tsconfig": "workspace:*",
     "@nestjs/cli": "^12.0.8",
     "@nestjs/schematics": "^12.0.6",

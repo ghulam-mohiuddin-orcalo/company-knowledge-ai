@@ -1,0 +1,9 @@
+{
+  "embeddingModel": "hashed-term-v1",
+  "generation": "extractive-mock",
+  "answerable": 33,
+  "unanswerable": 12,
+  "unsupportedAnswerRate": 0,
+  "sourceGroundingRate": 0.9167,
+  "answerRate": 0.7273
+}

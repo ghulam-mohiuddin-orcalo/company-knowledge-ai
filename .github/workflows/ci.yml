@@ -40,7 +40,7 @@ jobs:
       - run: pnpm build
 
   database:
-    name: Migrations, integration and security tests
+    name: Migrations, integration, security and RAG evaluation
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -72,3 +72,7 @@ jobs:
       # E1-T06: cross-tenant isolation and route-protection suite. Required gate.
       - name: Cross-tenant security suite
         run: pnpm test:security
+
+      # E4-T04/E5-T06: offline retrieval + RAG regression against the committed baseline.
+      - name: RAG evaluation regression gate
+        run: pnpm eval

@@ -43,6 +43,7 @@ pnpm typecheck
 pnpm test
 pnpm test:integration   # needs `pnpm infra:up` and DATABASE_URL
 pnpm test:security      # cross-tenant gate; same requirements
+pnpm eval               # RAG evaluation regression gate; same requirements
 pnpm build
 ```
 

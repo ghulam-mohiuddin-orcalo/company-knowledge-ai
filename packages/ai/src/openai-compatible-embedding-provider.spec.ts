@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { inspect } from 'node:util';
 import { type EmbeddingConfig, Secret } from '@cka/config';
 import { DeterministicEmbeddingProvider } from './deterministic-embedding-provider.js';
+import { HashedTermEmbeddingProvider } from './hashed-term-embedding-provider.js';
 import { EmbeddingProviderError } from './embedding-provider.js';
 import { OpenAiCompatibleEmbeddingProvider } from './openai-compatible-embedding-provider.js';
 
@@ -228,5 +229,31 @@ describe('DeterministicEmbeddingProvider', () => {
     expect(a1).toEqual(a2);
     expect(a1).not.toEqual(b);
     expect(Math.hypot(...a1!)).toBeCloseTo(1, 10);
+  });
+});
+
+describe('HashedTermEmbeddingProvider', () => {
+  const provider = new HashedTermEmbeddingProvider(1536);
+  const cosine = (a: number[], b: number[]) =>
+    a.reduce((sum, v, i) => sum + v * b[i]!, 0);
+
+  it('scores texts sharing terms above unrelated texts, deterministically', async () => {
+    const [question, related, unrelated] = await provider.embedTexts([
+      'How many days of annual leave do employees get?',
+      'Every employee receives 27 days of paid annual leave per year.',
+      'Business mileage is reimbursed at 45 pence per mile.',
+    ]);
+
+    expect(cosine(question!, related!)).toBeGreaterThan(
+      cosine(question!, unrelated!) + 0.2,
+    );
+    expect(await provider.embedQuery('Annual leave')).toEqual(
+      provider.vector('Annual leave'),
+    );
+    expect(Math.hypot(...question!)).toBeCloseTo(1, 10);
+  });
+
+  it('returns a zero vector for text without terms', () => {
+    expect(provider.vector('the of and ?!').every((v) => v === 0)).toBe(true);
   });
 });

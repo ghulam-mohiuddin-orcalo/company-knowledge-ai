@@ -15,10 +15,7 @@ import {
 } from '@cka/database';
 import { type ObjectStorage, S3ObjectStorage } from '@cka/storage';
 import { DocumentCleanupService } from './cleanup/document-cleanup.service.js';
-import { cl100kTokenCounter } from './ingestion/chunking/token-counter.js';
-import { DocxExtractor } from './ingestion/extraction/docx-extractor.js';
-import { PdfExtractor } from './ingestion/extraction/pdf-extractor.js';
-import { TextExtractor } from './ingestion/extraction/text-extractor.js';
+import { cl100kTokenCounter, createExtractors } from '@cka/ingestion';
 import { IngestionJobsRepository } from './ingestion/ingestion-jobs.repository.js';
 import { IngestionProcessor } from './ingestion/ingestion-processor.js';
 import {
@@ -72,14 +69,7 @@ export class WorkerModule implements OnApplicationShutdown {
           provide: EMBEDDING_PROVIDER,
           useFactory: () => new OpenAiCompatibleEmbeddingProvider(embedding),
         },
-        {
-          provide: EXTRACTORS,
-          useFactory: () => [
-            new TextExtractor(),
-            new PdfExtractor(),
-            new DocxExtractor(),
-          ],
-        },
+        { provide: EXTRACTORS, useFactory: createExtractors },
         { provide: TOKEN_COUNTER, useValue: cl100kTokenCounter },
         DocumentCleanupService,
         IngestionJobsRepository,
