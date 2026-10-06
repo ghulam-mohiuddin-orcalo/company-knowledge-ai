@@ -8,7 +8,7 @@ async function bootstrap(): Promise<void> {
   loadEnvFileIfPresent(new URL('../../../.env', import.meta.url));
   const config = loadConfigOrExit();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule.forRoot(config));
   app.enableShutdownHooks();
   await app.listen(config.app.port);
 }

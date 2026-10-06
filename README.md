@@ -65,6 +65,12 @@ The pgvector extension is available but not enabled by this stack; enabling it i
 
 The API and worker validate their environment at startup through `packages/config` and exit with a list of missing or invalid variable names (values and secrets are never printed). For local development they read the repository-root `.env`; real environment variables take precedence. See `.env.example` for all supported variables. `apps/web` must not import backend configuration.
 
+## Health checks
+
+- `GET /health` (API): liveness only; never depends on the database or AI providers.
+- `GET /ready` (API): `200` when PostgreSQL answers within 2 s, otherwise `503`. Error details are logged, never returned.
+- The worker checks PostgreSQL at startup, logs the result, and exits non-zero if it is unreachable.
+
 ## Database
 
 The schema is defined with Drizzle in `packages/database/src/schema.ts`; versioned SQL migrations live in `packages/database/migrations` and are committed.
