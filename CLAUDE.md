@@ -19,6 +19,9 @@ Precedence: BA → TDD → backlog. Do not redesign or reinterpret approved requ
 - Avoid unnecessary architecture or infrastructure (no extra queues, vector DBs, Kubernetes, etc. unless the docs require them).
 - Inspect existing code and conventions before changing anything; match them.
 - Never share ORM entities or backend internals through `packages/contracts`.
+- API routes: every non-public route declares `@Authorize('AUTHENTICATED' | 'MEMBER' | 'ORG_ADMIN' | 'PLATFORM_ADMIN')`; routes without one are denied. Only health endpoints are `@Public()`.
+- Tenant-owned repository methods take `scope: TenantScope` first (from `TenantScope.fromPrincipal`) and filter `organization_id` in SQL; no `findById(id)` on tenant resources (lint-enforced). Foreign IDs must behave exactly like unknown IDs.
+- Every new tenant-owned aggregate gets cases in the cross-tenant security suite (`pnpm test:security`).
 - Never log or print secrets or confidential document content.
 - Never commit or push unless explicitly requested.
 
@@ -38,6 +41,8 @@ Run the relevant checks before reporting completion:
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:integration   # needs `pnpm infra:up` and DATABASE_URL
+pnpm test:security      # cross-tenant gate; same requirements
 pnpm build
 ```
 

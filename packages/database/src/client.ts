@@ -1,4 +1,6 @@
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
+import * as schema from './schema.js';
 
 export type DatabasePool = pg.Pool;
 
@@ -17,6 +19,13 @@ export function createDatabasePool(
   });
   pool.on('error', onIdleError);
   return pool;
+}
+
+export type Database = NodePgDatabase<typeof schema>;
+
+/** Typed query builder over the pool. Repositories use this; never raw string-built SQL. */
+export function createDatabase(pool: DatabasePool): Database {
+  return drizzle(pool, { schema });
 }
 
 /** Verifies the database accepts queries, failing after `timeoutMs`. */

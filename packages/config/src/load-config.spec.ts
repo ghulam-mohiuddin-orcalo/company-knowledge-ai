@@ -3,6 +3,7 @@ import {
   ConfigValidationError,
   loadConfig,
   loadDatabaseConfig,
+  requireAuthConfig,
 } from './load-config.js';
 
 const DB_PASSWORD = 'db-password-should-not-leak';
@@ -165,5 +166,34 @@ describe('loadDatabaseConfig', () => {
     expect(() => loadDatabaseConfig({})).toThrow(
       new ConfigValidationError(['DATABASE_URL: is required']),
     );
+  });
+});
+
+describe('requireAuthConfig', () => {
+  it('names every missing authentication variable', () => {
+    expect(() => requireAuthConfig(loadConfig(validEnv))).toThrow(
+      new ConfigValidationError([
+        'AUTH_ISSUER_URL: is required',
+        'AUTH_AUDIENCE: is required',
+        'AUTH_JWKS_URL: is required',
+      ]),
+    );
+  });
+
+  it('returns authentication settings with claim defaults', () => {
+    const config = loadConfig({
+      ...validEnv,
+      AUTH_ISSUER_URL: 'https://idp.example/',
+      AUTH_AUDIENCE: 'cka-api',
+      AUTH_JWKS_URL: 'https://idp.example/.well-known/jwks.json',
+    });
+
+    expect(requireAuthConfig(config)).toEqual({
+      issuerUrl: 'https://idp.example/',
+      audience: 'cka-api',
+      jwksUrl: 'https://idp.example/.well-known/jwks.json',
+      emailClaim: 'email',
+      nameClaim: 'name',
+    });
   });
 });

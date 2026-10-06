@@ -26,6 +26,9 @@ export interface AppConfig {
   auth: {
     issuerUrl: string | undefined;
     audience: string | undefined;
+    jwksUrl: string | undefined;
+    emailClaim: string;
+    nameClaim: string;
     clientId: string | undefined;
     clientSecret: Secret | undefined;
   };
@@ -134,6 +137,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     auth: {
       issuerUrl: e.AUTH_ISSUER_URL,
       audience: e.AUTH_AUDIENCE,
+      jwksUrl: e.AUTH_JWKS_URL,
+      emailClaim: e.AUTH_EMAIL_CLAIM,
+      nameClaim: e.AUTH_NAME_CLAIM,
       clientId: e.AUTH_CLIENT_ID,
       clientSecret: e.AUTH_CLIENT_SECRET,
     },
@@ -157,6 +163,33 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       retryBackoffMs: e.JOB_RETRY_BACKOFF_MS,
     },
   };
+}
+
+export interface AuthConfig {
+  issuerUrl: string;
+  audience: string;
+  jwksUrl: string;
+  emailClaim: string;
+  nameClaim: string;
+}
+
+/**
+ * Returns the authentication settings, which the API requires to verify access
+ * tokens. Throws ConfigValidationError naming any missing variables.
+ */
+export function requireAuthConfig(config: AppConfig): AuthConfig {
+  const { issuerUrl, audience, jwksUrl, emailClaim, nameClaim } = config.auth;
+  const missing = [
+    ['AUTH_ISSUER_URL', issuerUrl],
+    ['AUTH_AUDIENCE', audience],
+    ['AUTH_JWKS_URL', jwksUrl],
+  ]
+    .filter(([, value]) => value === undefined)
+    .map(([name]) => `${name}: is required`);
+  if (missing.length > 0 || !issuerUrl || !audience || !jwksUrl) {
+    throw new ConfigValidationError(missing);
+  }
+  return { issuerUrl, audience, jwksUrl, emailClaim, nameClaim };
 }
 
 export interface DatabaseConfig {
@@ -192,6 +225,17 @@ export function loadConfigOrExit(
   env: NodeJS.ProcessEnv = process.env,
 ): AppConfig {
   return exitOnConfigError(() => loadConfig(env));
+}
+
+/** Like loadConfigOrExit, for the API: also requires authentication settings. */
+export function loadApiConfigOrExit(env: NodeJS.ProcessEnv = process.env): {
+  config: AppConfig;
+  auth: AuthConfig;
+} {
+  return exitOnConfigError(() => {
+    const config = loadConfig(env);
+    return { config, auth: requireAuthConfig(config) };
+  });
 }
 
 /** Like loadConfigOrExit, for processes that only need database settings. */

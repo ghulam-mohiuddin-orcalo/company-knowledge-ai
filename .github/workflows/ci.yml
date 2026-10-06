@@ -40,7 +40,7 @@ jobs:
       - run: pnpm build
 
   database:
-    name: Migrations and integration tests
+    name: Migrations, integration and security tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -66,3 +66,7 @@ jobs:
         run: pnpm db:migrate
 
       - run: pnpm test:integration
+
+      # E1-T06: cross-tenant isolation and route-protection suite. Required gate.
+      - name: Cross-tenant security suite
+        run: pnpm test:security

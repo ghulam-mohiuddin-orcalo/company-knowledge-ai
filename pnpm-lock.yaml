@@ -187,6 +187,12 @@ importers:
       '@nestjs/platform-express':
         specifier: ^12.1.2
         version: 12.1.2(@nestjs/common@12.1.2(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.1.2)(supports-color@7.2.0)
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.1)
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -215,9 +221,15 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.1
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
       eslint:
         specifier: ^9.39.0
         version: 9.39.5(supports-color@7.2.0)
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -2905,6 +2917,9 @@ packages:
   iterator.prototype@1.1.5:
     resolution: {integrity: sha512-H0dkQoCa3b2VEeKQBOxFph+JAbcrQdE7KC0UkqwpLmv2EC4P41QXP+rqo9wYodACiG5/WM5s9oDApTU8utwj9g==}
     engines: {node: '>= 0.4'}
+
+  jose@6.2.12:
+    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -6232,6 +6247,8 @@ snapshots:
       get-proto: 1.0.1
       has-symbols: 1.1.0
       set-function-name: 2.0.2
+
+  jose@6.2.12: {}
 
   js-tokens@4.0.0: {}
 

@@ -23,8 +23,9 @@ const commaList = z
  * Every environment variable the backend (api + worker) reads.
  * Variable names are defined here only; application code consumes the typed result.
  *
- * Auth and AI provider settings stay optional until the tickets that select
- * and integrate those providers (E1-T01, E3-T04, E5-T02) make them required.
+ * AI provider settings stay optional until the tickets that integrate those
+ * providers (E3-T04, E5-T02) make them required. Authentication settings are
+ * required by the API only (see requireAuthConfig); the worker does not authenticate.
  */
 export const envSchema = z.object({
   // App
@@ -51,8 +52,12 @@ export const envSchema = z.object({
   S3_FORCE_PATH_STYLE: booleanFlag.default(false),
 
   // Authentication
+  // Any OIDC provider issuing JWT access tokens signed with asymmetric keys.
   AUTH_ISSUER_URL: url.optional(),
   AUTH_AUDIENCE: optionalString,
+  AUTH_JWKS_URL: url.optional(),
+  AUTH_EMAIL_CLAIM: requiredString.default('email'),
+  AUTH_NAME_CLAIM: requiredString.default('name'),
   AUTH_CLIENT_ID: optionalString,
   AUTH_CLIENT_SECRET: secret.optional(),
 
