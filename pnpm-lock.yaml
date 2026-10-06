@@ -175,6 +175,9 @@ importers:
       '@cka/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@cka/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@nestjs/common':
         specifier: ^12.1.2
         version: 12.1.2(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
@@ -261,6 +264,9 @@ importers:
       '@cka/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@cka/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@nestjs/common':
         specifier: ^12.1.2
         version: 12.1.2(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
