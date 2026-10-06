@@ -19,6 +19,8 @@ packages/
   contracts/        # shared API contract types
   config/           # shared configuration primitives
   database/         # backend-only Drizzle schema + SQL migrations
+  storage/          # backend-only private object storage (S3-compatible)
+  ai/               # backend-only AI provider adapters (embeddings)
   eslint-config/    # shared ESLint flat configs
   tsconfig/         # shared TypeScript configs
 docs/               # requirements, design and backlog
@@ -71,6 +73,14 @@ The API and worker validate their environment at startup through `packages/confi
 - Roles come from the database: `MEMBER` / `ORG_ADMIN` per organization membership; `PLATFORM_ADMIN` is a user flag set only by operators.
 - The active organization is resolved from the caller's memberships. Multi-organization users select one with the `X-Organization-Id` header, which is honoured only for their own active memberships.
 - Errors use the envelope `{ "error": { "code", "message" } }`.
+
+## Documents and ingestion
+
+- `POST /v1/documents` (ORG_ADMIN): multipart upload (`file`) of PDF, DOCX or TXT up to `UPLOAD_MAX_BYTES`. The extension, declared type and file signature must agree. The original is stored privately under `org/{organizationId}/documents/{documentId}/original`; the filename is display metadata only. A queued ingestion job is created with the document.
+- `GET /v1/documents` (cursor-paginated) and `GET /v1/documents/:id` (MEMBER): tenant-scoped metadata and status. Storage keys are never returned.
+- `DELETE /v1/documents/:id` (ORG_ADMIN): the document becomes non-retrievable immediately (`DELETING`); the worker removes chunks and the stored original, then marks it `DELETED`. Repeating the call is safe.
+- The worker (`apps/worker`) polls PostgreSQL for jobs (no broker): storage read → extraction (PDF pages, DOCX sections, TXT) → normalization → token-aware chunking → embeddings → chunks with `vector(1536)` written in the same transaction as `READY`. Retries are bounded with backoff; crashed jobs are reclaimed after a lease; failures leave `FAILED` with a safe error code.
+- Embeddings use an OpenAI-compatible API (`AI_PROVIDER=openai-compatible`, `text-embedding-3-small`). Tests use a deterministic offline provider.
 
 ## Health checks
 

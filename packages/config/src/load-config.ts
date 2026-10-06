@@ -1,6 +1,10 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
-import { envSchema, type Env } from './schema.js';
+import {
+  envSchema,
+  type Env,
+  type SupportedDocumentMimeType,
+} from './schema.js';
 import type { Secret } from './secret.js';
 
 export interface AppConfig {
@@ -33,7 +37,8 @@ export interface AppConfig {
     clientSecret: Secret | undefined;
   };
   ai: {
-    provider: string | undefined;
+    provider: Env['AI_PROVIDER'];
+    baseUrl: string;
     apiKey: Secret | undefined;
     generationModel: string | undefined;
     embeddingModel: string | undefined;
@@ -44,12 +49,17 @@ export interface AppConfig {
   };
   uploads: {
     maxBytes: number;
-    allowedMimeTypes: string[];
+    allowedMimeTypes: SupportedDocumentMimeType[];
   };
   jobs: {
     pollIntervalMs: number;
     maxAttempts: number;
     retryBackoffMs: number;
+    leaseMs: number;
+  };
+  chunking: {
+    sizeTokens: number;
+    overlapTokens: number;
   };
 }
 
@@ -112,6 +122,11 @@ function parseEnv<T extends z.ZodType>(
 /** Validates the environment and returns typed configuration, or throws ConfigValidationError. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const e = parseEnv(envSchema, env);
+  if (e.CHUNK_OVERLAP_TOKENS >= e.CHUNK_SIZE_TOKENS) {
+    throw new ConfigValidationError([
+      'CHUNK_OVERLAP_TOKENS: must be smaller than CHUNK_SIZE_TOKENS',
+    ]);
+  }
   return {
     app: {
       nodeEnv: e.NODE_ENV,
@@ -145,6 +160,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     ai: {
       provider: e.AI_PROVIDER,
+      baseUrl: e.AI_BASE_URL,
       apiKey: e.AI_API_KEY,
       generationModel: e.AI_GENERATION_MODEL,
       embeddingModel: e.AI_EMBEDDING_MODEL,
@@ -161,6 +177,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       pollIntervalMs: e.JOB_POLL_INTERVAL_MS,
       maxAttempts: e.JOB_MAX_ATTEMPTS,
       retryBackoffMs: e.JOB_RETRY_BACKOFF_MS,
+      leaseMs: e.JOB_LEASE_MS,
+    },
+    chunking: {
+      sizeTokens: e.CHUNK_SIZE_TOKENS,
+      overlapTokens: e.CHUNK_OVERLAP_TOKENS,
     },
   };
 }
@@ -190,6 +211,49 @@ export function requireAuthConfig(config: AppConfig): AuthConfig {
     throw new ConfigValidationError(missing);
   }
   return { issuerUrl, audience, jwksUrl, emailClaim, nameClaim };
+}
+
+export interface EmbeddingConfig {
+  provider: NonNullable<Env['AI_PROVIDER']>;
+  baseUrl: string;
+  /** Optional: some OpenAI-compatible servers need no key. */
+  apiKey: Secret | undefined;
+  model: string;
+  dimensions: number;
+  batchSize: number;
+  requestTimeoutMs: number;
+}
+
+/**
+ * Returns the embedding provider settings required by the ingestion worker.
+ * Throws ConfigValidationError naming any missing variables.
+ */
+export function requireEmbeddingConfig(config: AppConfig): EmbeddingConfig {
+  const { provider, embeddingModel, embeddingDimensions } = config.ai;
+  const missing = [
+    ['AI_PROVIDER', provider],
+    ['AI_EMBEDDING_MODEL', embeddingModel],
+    ['AI_EMBEDDING_DIMENSIONS', embeddingDimensions],
+  ]
+    .filter(([, value]) => value === undefined)
+    .map(([name]) => `${String(name)}: is required`);
+  if (
+    missing.length > 0 ||
+    !provider ||
+    !embeddingModel ||
+    !embeddingDimensions
+  ) {
+    throw new ConfigValidationError(missing);
+  }
+  return {
+    provider,
+    baseUrl: config.ai.baseUrl,
+    apiKey: config.ai.apiKey,
+    model: embeddingModel,
+    dimensions: embeddingDimensions,
+    batchSize: config.ai.embeddingBatchSize,
+    requestTimeoutMs: config.ai.requestTimeoutMs,
+  };
 }
 
 export interface DatabaseConfig {
@@ -235,6 +299,17 @@ export function loadApiConfigOrExit(env: NodeJS.ProcessEnv = process.env): {
   return exitOnConfigError(() => {
     const config = loadConfig(env);
     return { config, auth: requireAuthConfig(config) };
+  });
+}
+
+/** Like loadConfigOrExit, for the worker: also requires embedding settings. */
+export function loadWorkerConfigOrExit(env: NodeJS.ProcessEnv = process.env): {
+  config: AppConfig;
+  embedding: EmbeddingConfig;
+} {
+  return exitOnConfigError(() => {
+    const config = loadConfig(env);
+    return { config, embedding: requireEmbeddingConfig(config) };
   });
 }
 

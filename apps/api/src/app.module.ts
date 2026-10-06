@@ -7,8 +7,10 @@ import { AuthorizationModule } from './authorization/authorization.module.js';
 import { ErrorEnvelopeFilter } from './common/error-envelope.filter.js';
 import { type ApiConfig, ConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './database/database.module.js';
+import { DocumentsModule } from './documents/documents.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MeModule } from './me/me.module.js';
+import { StorageModule } from './storage/storage.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 
@@ -21,12 +23,14 @@ export class AppModule {
       imports: [
         ConfigModule.forRoot(apiConfig),
         DatabaseModule,
+        StorageModule,
         AuthModule,
         OrganizationsModule,
         TenancyModule,
         AuthorizationModule,
         HealthModule,
         MeModule,
+        DocumentsModule,
       ],
       providers: [
         { provide: APP_FILTER, useClass: ErrorEnvelopeFilter },

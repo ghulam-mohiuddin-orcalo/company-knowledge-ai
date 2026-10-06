@@ -13,6 +13,7 @@ export interface TestApi {
       token?: string;
       headers?: Record<string, string>;
       method?: string;
+      body?: FormData;
     },
   ): Promise<{ status: number; body: unknown; text: string }>;
   close(): Promise<void>;
@@ -22,10 +23,11 @@ export interface TestApi {
 export async function startTestApi(
   databaseUrl: string,
   idp: TestIdentityProvider,
+  env: NodeJS.ProcessEnv = {},
 ): Promise<TestApi> {
   const app = await NestFactory.create(
     AppModule.forRoot(
-      createTestConfig({ DATABASE_URL: databaseUrl, ...idp.env() }),
+      createTestConfig({ DATABASE_URL: databaseUrl, ...idp.env(), ...env }),
     ),
     { logger: false },
   );
@@ -37,6 +39,7 @@ export async function startTestApi(
     async request(path, options = {}) {
       const response = await fetch(`${baseUrl}${path}`, {
         method: options.method ?? 'GET',
+        body: options.body,
         headers: {
           ...(options.token
             ? { authorization: `Bearer ${options.token}` }

@@ -44,6 +44,80 @@ describe('cross-tenant isolation (E1-T06)', () => {
     await db?.drop();
   });
 
+  describe('documents (E2)', () => {
+    let orgBDocument: string;
+    const upload = async (token: string, name: string) => {
+      const form = new FormData();
+      form.append(
+        'file',
+        new Blob([`secret of ${name}`], { type: 'text/plain' }),
+        name,
+      );
+      return api.request('/v1/documents', {
+        method: 'POST',
+        body: form,
+        token,
+      });
+    };
+
+    beforeAll(async () => {
+      const response = await upload(
+        await fx.adminB.token(),
+        'org-b-board-minutes.txt',
+      );
+      orgBDocument = (response.body as { id: string }).id;
+    });
+
+    it('Org A cannot read, delete or list Org B documents', async () => {
+      const markers = [...orgB, orgBDocument, 'org-b-board-minutes'];
+      for (const user of [fx.adminA, fx.memberA]) {
+        const token = await user.token();
+        expectDeniedWithoutLeak(
+          await api.request(`/v1/documents/${orgBDocument}`, { token }),
+          404,
+          markers,
+        );
+        expectNoLeak(await api.request('/v1/documents', { token }), markers);
+      }
+      expectDeniedWithoutLeak(
+        await api.request(`/v1/documents/${orgBDocument}`, {
+          method: 'DELETE',
+          token: await fx.adminA.token(),
+        }),
+        404,
+        markers,
+      );
+      const stillThere = await api.request(`/v1/documents/${orgBDocument}`, {
+        token: await fx.adminB.token(),
+      });
+      expect(stillThere.status).toBe(200);
+    });
+
+    it('Org A cannot upload into Org B', async () => {
+      const form = new FormData();
+      form.append('file', new Blob(['x'], { type: 'text/plain' }), 'x.txt');
+      const response = await api.request('/v1/documents', {
+        method: 'POST',
+        body: form,
+        token: await fx.adminA.token(),
+        headers: { 'x-organization-id': fx.orgB.id },
+      });
+
+      expectDeniedWithoutLeak(response, 403, orgB);
+      const orgBList = await api.request('/v1/documents', {
+        token: await fx.adminB.token(),
+      });
+      expect((orgBList.body as { items: unknown[] }).items).toHaveLength(1);
+    });
+
+    it('document responses never expose storage keys', async () => {
+      const response = await upload(await fx.adminA.token(), 'a.txt');
+
+      expect(response.status).toBe(201);
+      expect(response.text).not.toMatch(/org\/|storage|sha256/i);
+    });
+  });
+
   describe('direct object references (IDOR)', () => {
     it('Org A admin cannot read an Org B membership by ID', async () => {
       const response = await api.request(

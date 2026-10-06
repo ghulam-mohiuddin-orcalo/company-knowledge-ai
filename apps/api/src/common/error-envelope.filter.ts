@@ -28,6 +28,11 @@ const HTTP_STATUS_CODES: Partial<Record<number, [ApiErrorCode, string]>> = {
     'CONFLICT',
     'The request conflicts with existing data.',
   ],
+  // Only file uploads accept bodies large enough to hit this limit.
+  [HttpStatus.PAYLOAD_TOO_LARGE]: [
+    'DOCUMENT_TOO_LARGE',
+    'The file exceeds the maximum upload size.',
+  ],
 };
 
 /**

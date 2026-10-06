@@ -6,6 +6,7 @@ const optionalString = requiredString.optional();
 const secret = requiredString.transform((value) => new Secret(value));
 const url = z.url();
 const positiveInt = z.coerce.number().int().positive();
+const nonNegativeInt = z.coerce.number().int().min(0);
 const booleanFlag = z
   .enum(['true', 'false'])
   .transform((value) => value === 'true');
@@ -19,12 +20,31 @@ const commaList = z
   )
   .pipe(z.array(requiredString).min(1));
 
+/** Document types the ingestion pipeline can extract (BA FR-DOC-01). */
+export const SUPPORTED_DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+] as const;
+export type SupportedDocumentMimeType =
+  (typeof SUPPORTED_DOCUMENT_MIME_TYPES)[number];
+
+const supportedMimeList = z
+  .string()
+  .transform((value) =>
+    value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )
+  .pipe(z.array(z.enum(SUPPORTED_DOCUMENT_MIME_TYPES)).min(1));
+
 /**
  * Every environment variable the backend (api + worker) reads.
  * Variable names are defined here only; application code consumes the typed result.
  *
- * AI provider settings stay optional until the tickets that integrate those
- * providers (E3-T04, E5-T02) make them required. Authentication settings are
+ * AI provider settings are optional here: the worker requires the embedding
+ * settings (see requireEmbeddingConfig); generation settings arrive with E5-T02. Authentication settings are
  * required by the API only (see requireAuthConfig); the worker does not authenticate.
  */
 export const envSchema = z.object({
@@ -62,7 +82,10 @@ export const envSchema = z.object({
   AUTH_CLIENT_SECRET: secret.optional(),
 
   // AI providers
-  AI_PROVIDER: optionalString,
+  // Provider adapters available (TDD §18). 'openai-compatible' covers OpenAI,
+  // Azure OpenAI and compatible servers via AI_BASE_URL.
+  AI_PROVIDER: z.enum(['openai-compatible']).optional(),
+  AI_BASE_URL: url.default('https://api.openai.com/v1'),
   AI_API_KEY: secret.optional(),
   AI_GENERATION_MODEL: optionalString,
   AI_EMBEDDING_MODEL: optionalString,
@@ -73,16 +96,21 @@ export const envSchema = z.object({
 
   // Uploads (BA FR-DOC-01: PDF, DOCX, TXT)
   UPLOAD_MAX_BYTES: positiveInt.default(25 * 1024 * 1024),
-  UPLOAD_ALLOWED_MIME_TYPES: commaList.default([
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
+  // Subset of SUPPORTED_DOCUMENT_MIME_TYPES; types without an extractor are rejected.
+  UPLOAD_ALLOWED_MIME_TYPES: supportedMimeList.default([
+    ...SUPPORTED_DOCUMENT_MIME_TYPES,
   ]),
 
   // Background jobs
   JOB_POLL_INTERVAL_MS: positiveInt.default(2000),
   JOB_MAX_ATTEMPTS: positiveInt.default(3),
   JOB_RETRY_BACKOFF_MS: positiveInt.default(5000),
+  // A PROCESSING job whose lease expires (worker crash) becomes claimable again.
+  JOB_LEASE_MS: positiveInt.default(10 * 60 * 1000),
+
+  // Chunking (TDD §12.1): tuned against the evaluation corpus, not fixed requirements.
+  CHUNK_SIZE_TOKENS: positiveInt.default(800),
+  CHUNK_OVERLAP_TOKENS: nonNegativeInt.default(120),
 });
 
 export type Env = z.output<typeof envSchema>;

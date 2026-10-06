@@ -1,12 +1,14 @@
 import 'reflect-metadata';
-import { loadConfigOrExit, loadEnvFileIfPresent } from '@cka/config';
+import { loadEnvFileIfPresent, loadWorkerConfigOrExit } from '@cka/config';
 import {
   createDatabasePool,
   describeDatabaseError,
+  EMBEDDING_DIMENSIONS,
   pingDatabase,
 } from '@cka/database';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { WorkerLoop } from './worker-loop.js';
 import { WorkerModule } from './worker.module.js';
 
 const STARTUP_DATABASE_TIMEOUT_MS = 5000;
@@ -15,8 +17,17 @@ const STARTUP_DATABASE_TIMEOUT_MS = 5000;
 async function bootstrap(): Promise<void> {
   // Fail fast on missing/invalid configuration before anything starts.
   loadEnvFileIfPresent(new URL('../../../.env', import.meta.url));
-  const config = loadConfigOrExit();
+  const workerConfig = loadWorkerConfigOrExit();
+  const { config, embedding } = workerConfig;
   const logger = new Logger('Worker');
+
+  // The vector column has a fixed dimension; a different model needs a migration.
+  if (embedding.dimensions !== EMBEDDING_DIMENSIONS) {
+    console.error(
+      `Invalid configuration. Fix the following environment variables:\n  - AI_EMBEDDING_DIMENSIONS: must be ${EMBEDDING_DIMENSIONS} to match the database vector column`,
+    );
+    process.exit(1);
+  }
 
   // Startup health: the worker cannot process jobs without PostgreSQL, so an
   // unreachable database is a startup failure rather than a hidden one.
@@ -33,16 +44,15 @@ async function bootstrap(): Promise<void> {
     await pool.end();
   }
 
-  const app = await NestFactory.createApplicationContext(WorkerModule);
+  const app = await NestFactory.createApplicationContext(
+    WorkerModule.forRoot(workerConfig),
+  );
   app.enableShutdownHooks();
+  app.get(WorkerLoop).start();
 
-  // Keep the process alive until a job loop exists to do so (E3-T06).
-  const keepAlive = setInterval(() => undefined, 60_000);
-  const shutdown = (): void => clearInterval(keepAlive);
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
-
-  logger.log('Worker started');
+  logger.log(
+    `Worker started (embedding model ${embedding.model}, ${embedding.dimensions} dimensions)`,
+  );
 }
 
 await bootstrap();

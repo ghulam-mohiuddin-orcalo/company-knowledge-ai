@@ -4,6 +4,7 @@ import {
   loadConfig,
   loadDatabaseConfig,
   requireAuthConfig,
+  requireEmbeddingConfig,
 } from './load-config.js';
 
 const DB_PASSWORD = 'db-password-should-not-leak';
@@ -53,6 +54,7 @@ describe('loadConfig', () => {
       pollIntervalMs: 2000,
       maxAttempts: 3,
       retryBackoffMs: 5000,
+      leaseMs: 600000,
     });
     expect(config.ai.apiKey).toBeUndefined();
   });
@@ -92,6 +94,35 @@ describe('loadConfig', () => {
   it('treats empty values as missing', () => {
     expect(captureError({ ...validEnv, DATABASE_URL: '  ' }).problems).toEqual([
       'DATABASE_URL: is required',
+    ]);
+  });
+
+  it('validates chunking settings', () => {
+    expect(loadConfig(validEnv).chunking).toEqual({
+      sizeTokens: 800,
+      overlapTokens: 120,
+    });
+    expect(
+      captureError({
+        ...validEnv,
+        CHUNK_SIZE_TOKENS: '100',
+        CHUNK_OVERLAP_TOKENS: '100',
+      }).problems,
+    ).toEqual(['CHUNK_OVERLAP_TOKENS: must be smaller than CHUNK_SIZE_TOKENS']);
+  });
+
+  it('only allows upload types that can be extracted', () => {
+    expect(
+      loadConfig({ ...validEnv, UPLOAD_ALLOWED_MIME_TYPES: 'text/plain' })
+        .uploads.allowedMimeTypes,
+    ).toEqual(['text/plain']);
+    expect(
+      captureError({
+        ...validEnv,
+        UPLOAD_ALLOWED_MIME_TYPES: 'text/plain,image/png',
+      }).problems,
+    ).toEqual([
+      'UPLOAD_ALLOWED_MIME_TYPES: must be one of application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/plain',
     ]);
   });
 
@@ -195,5 +226,45 @@ describe('requireAuthConfig', () => {
       emailClaim: 'email',
       nameClaim: 'name',
     });
+  });
+});
+
+describe('requireEmbeddingConfig', () => {
+  it('names every missing embedding variable', () => {
+    expect(() => requireEmbeddingConfig(loadConfig(validEnv))).toThrow(
+      new ConfigValidationError([
+        'AI_PROVIDER: is required',
+        'AI_EMBEDDING_MODEL: is required',
+        'AI_EMBEDDING_DIMENSIONS: is required',
+      ]),
+    );
+  });
+
+  it('returns embedding settings with defaults and a redacted key', () => {
+    const embedding = requireEmbeddingConfig(
+      loadConfig({
+        ...validEnv,
+        AI_PROVIDER: 'openai-compatible',
+        AI_API_KEY: 'sk-should-not-leak',
+        AI_EMBEDDING_MODEL: 'text-embedding-3-small',
+        AI_EMBEDDING_DIMENSIONS: '1536',
+      }),
+    );
+
+    expect(embedding).toMatchObject({
+      provider: 'openai-compatible',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'text-embedding-3-small',
+      dimensions: 1536,
+      batchSize: 64,
+      requestTimeoutMs: 30000,
+    });
+    expect(JSON.stringify(embedding)).not.toContain('sk-should-not-leak');
+  });
+
+  it('rejects unknown providers', () => {
+    expect(
+      captureError({ ...validEnv, AI_PROVIDER: 'some-vendor' }).problems,
+    ).toEqual(['AI_PROVIDER: must be one of openai-compatible']);
   });
 });

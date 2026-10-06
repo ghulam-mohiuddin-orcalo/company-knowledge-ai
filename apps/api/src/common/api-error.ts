@@ -10,6 +10,9 @@ export type ApiErrorCode =
   | 'NOT_FOUND'
   | 'VALIDATION_FAILED'
   | 'CONFLICT'
+  | 'DOCUMENT_UNSUPPORTED_TYPE'
+  | 'DOCUMENT_TOO_LARGE'
+  | 'DOCUMENT_EMPTY'
   | 'INTERNAL_ERROR';
 
 /**

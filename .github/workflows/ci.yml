@@ -44,7 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      # Matches the local-development defaults in infra/docker/compose.yaml (CI-only database).
+      # Matches the local-development defaults in infra/docker/compose.yaml (CI-only services;
+      # storage tests use the same compose defaults).
       DATABASE_URL: postgresql://cka:cka_local_dev@127.0.0.1:5432/company_knowledge
     steps:
       - uses: actions/checkout@v7
@@ -59,8 +60,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Start PostgreSQL (pgvector)
-        run: docker compose -f infra/docker/compose.yaml up -d --wait postgres
+      # Same local stack as development: pgvector PostgreSQL + private S3-compatible storage.
+      - name: Start PostgreSQL (pgvector) and object storage
+        run: pnpm infra:up
 
       - name: Migrate empty database from zero
         run: pnpm db:migrate

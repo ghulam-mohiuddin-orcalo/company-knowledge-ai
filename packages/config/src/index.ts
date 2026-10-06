@@ -8,9 +8,16 @@ export {
   loadDatabaseConfig,
   loadDatabaseConfigOrExit,
   loadEnvFileIfPresent,
+  loadWorkerConfigOrExit,
   requireAuthConfig,
+  requireEmbeddingConfig,
   type AppConfig,
   type AuthConfig,
   type DatabaseConfig,
+  type EmbeddingConfig,
 } from './load-config.js';
 export { Secret } from './secret.js';
+export {
+  SUPPORTED_DOCUMENT_MIME_TYPES,
+  type SupportedDocumentMimeType,
+} from './schema.js';

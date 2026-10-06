@@ -9,13 +9,20 @@
     "start": "node dist/main.js",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
+    "@cka/ai": "workspace:*",
     "@cka/config": "workspace:*",
     "@cka/database": "workspace:*",
+    "@cka/storage": "workspace:*",
     "@nestjs/common": "^12.1.2",
     "@nestjs/core": "^12.1.2",
+    "drizzle-orm": "^0.45.3",
+    "js-tiktoken": "^1.0.21",
+    "mammoth": "^1.10.0",
+    "pdfjs-dist": "^6.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
@@ -26,7 +33,10 @@
     "@nestjs/schematics": "^12.0.6",
     "@nestjs/testing": "^12.1.2",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "eslint": "^9.39.0",
+    "jszip": "^3.10.1",
+    "pg": "^8.23.1",
     "typescript": "~6.0.3",
     "vitest": "^5.0.3"
   }

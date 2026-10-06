@@ -15,6 +15,20 @@
       "when": 1791280541981,
       "tag": "0001_platform_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791282082176,
+      "tag": "0002_documents_ingestion_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791282913533,
+      "tag": "0003_document_chunks",
+      "breakpoints": true
     }
   ]
 }
