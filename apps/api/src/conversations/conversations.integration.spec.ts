@@ -158,6 +158,7 @@ describe('conversations and messages (E5-T01)', () => {
         content: 'How much leave do I get?',
         outcome: null,
         replyTo: null,
+        citations: [],
         createdAt: expect.any(String),
       },
       {
@@ -166,6 +167,7 @@ describe('conversations and messages (E5-T01)', () => {
         content: 'The answer is not available in the current knowledge base.',
         outcome: 'NO_ANSWER',
         replyTo: question.id,
+        citations: [],
         createdAt: expect.any(String),
       },
     ]);

@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import {
+  type CitationView,
+  CitationsRepository,
+} from '../citations/citations.repository.js';
 import { ApiError } from '../common/api-error.js';
 import { encodeCursor, type PageRequest } from '../common/pagination.js';
 import type { TenantScope } from '../tenancy/tenant-scope.js';
@@ -10,7 +14,10 @@ import {
 
 @Injectable()
 export class ConversationsService {
-  constructor(private readonly conversations: ConversationsRepository) {}
+  constructor(
+    private readonly conversations: ConversationsRepository,
+    private readonly citations: CitationsRepository,
+  ) {}
 
   async create(
     scope: TenantScope,
@@ -59,8 +66,16 @@ export class ConversationsService {
     scope: TenantScope,
     userId: string,
     conversationId: string,
-  ): Promise<MessageRecord[]> {
+  ): Promise<{ messages: MessageRecord[]; citations: CitationView[] }> {
     await this.getOwned(scope, userId, conversationId);
-    return this.conversations.listMessages(scope, conversationId);
+    const messages = await this.conversations.listMessages(
+      scope,
+      conversationId,
+    );
+    const citations = await this.citations.listForMessages(
+      scope,
+      messages.filter((m) => m.role === 'ASSISTANT').map((m) => m.id),
+    );
+    return { messages, citations };
   }
 }

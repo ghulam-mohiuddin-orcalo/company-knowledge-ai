@@ -5,6 +5,8 @@ import { isUniqueViolation } from '../common/database-errors.js';
 import { DATABASE } from '../database/database.module.js';
 import type { TenantScope } from '../tenancy/tenant-scope.js';
 
+type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+
 export type ConversationRecord = typeof conversations.$inferSelect;
 export type MessageRecord = typeof messages.$inferSelect;
 export type MessageOutcome = NonNullable<MessageRecord['outcome']>;
@@ -192,18 +194,23 @@ export class ConversationsRepository {
     scope: TenantScope,
     conversationId: string,
     reply: NewAssistantMessage,
+    /** Runs in the same transaction (e.g. to create citations). */
+    withinTransaction?: (tx: Tx, messageId: string) => Promise<void>,
   ): Promise<MessageRecord> {
     try {
-      const [inserted] = await this.db
-        .insert(messages)
-        .values({
-          ...reply,
-          organizationId: scope.organizationId,
-          conversationId,
-          role: 'ASSISTANT',
-        })
-        .returning();
-      return inserted!;
+      return await this.db.transaction(async (tx) => {
+        const [inserted] = await tx
+          .insert(messages)
+          .values({
+            ...reply,
+            organizationId: scope.organizationId,
+            conversationId,
+            role: 'ASSISTANT',
+          })
+          .returning();
+        await withinTransaction?.(tx, inserted!.id);
+        return inserted!;
+      });
     } catch (error) {
       if (isUniqueViolation(error, 'messages_reply_to_message_id_key')) {
         return (await this.findReply(scope, reply.replyToMessageId))!;

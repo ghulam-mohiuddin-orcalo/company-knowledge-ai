@@ -14,6 +14,7 @@ export type ApiErrorCode =
   | 'DOCUMENT_TOO_LARGE'
   | 'DOCUMENT_EMPTY'
   | 'AI_PROVIDER_UNAVAILABLE'
+  | 'SOURCE_UNAVAILABLE'
   | 'INTERNAL_ERROR';
 
 /**

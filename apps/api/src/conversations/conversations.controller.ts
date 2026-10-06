@@ -74,11 +74,11 @@ export class ConversationsController {
     @CurrentPrincipal() principal: Principal,
     @Param('conversationId', new ParseUUIDPipe()) conversationId: string,
   ): Promise<{ items: MessageResponse[] }> {
-    const messages = await this.conversations.listMessages(
+    const { messages, citations } = await this.conversations.listMessages(
       TenantScope.fromPrincipal(principal),
       principal.userId,
       conversationId,
     );
-    return { items: messages.map(toMessageResponse) };
+    return { items: messages.map((m) => toMessageResponse(m, citations)) };
   }
 }

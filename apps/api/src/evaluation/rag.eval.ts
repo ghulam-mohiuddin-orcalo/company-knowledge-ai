@@ -10,6 +10,7 @@ import {
   loadEnvFileIfPresent,
   requireGenerationConfig,
 } from '@cka/config';
+import { CitationsRepository } from '../citations/citations.repository.js';
 import { ConversationsService } from '../conversations/conversations.service.js';
 import { NO_ANSWER_SENTINEL, SYSTEM_PROMPT } from '../rag/prompt-builder.js';
 import { GENERATION_PROVIDER, RagService } from '../rag/rag.service.js';
@@ -109,6 +110,7 @@ async function runCorpus(
     harness.documents.map((d: CorpusDocument) => [d.filename, d.id]),
   );
   const owner = (await harness.db.query.users.findFirst())!.id;
+  const citationRepository = harness.moduleRef.get(CitationsRepository);
   const rows = [];
 
   for (const question of harness.questions) {
@@ -126,11 +128,27 @@ async function runCorpus(
       null,
     );
     const request = generation.requests?.[before];
-    const sources = request ? promptSources(request.user) : [];
-    const cited = [...answer.content.matchAll(/\[(SOURCE_\d+)\]/g)].map(
-      (m) => m[1]!,
-    );
-    const citedSources = sources.filter((s) => cited.includes(s.label));
+    // Grounding is judged on the persisted, server-backed citations (E6).
+    const citations = await citationRepository.listForMessages(harness.scope, [
+      answer.id,
+    ]);
+    for (const citation of citations) {
+      expect(citation.available).toBe(true);
+      expect(harness.foreignDocumentIds.has(citation.documentId)).toBe(false);
+    }
+    if (answer.outcome === 'ANSWERED')
+      expect(citations.length).toBeGreaterThan(0);
+    const citedSources: PromptSourceInfo[] = citations.map((c) => ({
+      label: `[${c.ordinal}]`,
+      document: c.documentName,
+      location:
+        c.locator.page !== null
+          ? `page ${c.locator.page}`
+          : c.locator.section !== null
+            ? `section ${c.locator.section}`
+            : 'document',
+      content: c.chunkContent ?? '',
+    }));
     if (request) {
       // The trusted instructions never change, whatever the evidence says.
       expect(request.system).toBe(SYSTEM_PROMPT);

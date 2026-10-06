@@ -1,3 +1,8 @@
+import {
+  type CitationResponse,
+  toCitationResponse,
+} from '../citations/citation-responses.js';
+import type { CitationView } from '../citations/citations.repository.js';
 import type {
   ConversationRecord,
   MessageOutcome,
@@ -18,6 +23,8 @@ export interface MessageResponse {
   /** Assistant messages only: a grounded answer or the explicit no-answer. */
   outcome: MessageOutcome | null;
   replyTo: string | null;
+  /** Server-backed citations, in ordinal order (assistant answers only). */
+  citations: CitationResponse[];
   createdAt: string;
 }
 
@@ -33,13 +40,20 @@ export function toConversationResponse(
 }
 
 /** Never includes prompts, model/provider details or token usage. */
-export function toMessageResponse(message: MessageRecord): MessageResponse {
+export function toMessageResponse(
+  message: MessageRecord,
+  citations: readonly CitationView[] = [],
+): MessageResponse {
   return {
     id: message.id,
     role: message.role,
     content: message.content,
     outcome: message.outcome,
     replyTo: message.replyToMessageId,
+    citations: citations
+      .filter((citation) => citation.messageId === message.id)
+      .sort((a, b) => a.ordinal - b.ordinal)
+      .map(toCitationResponse),
     createdAt: message.createdAt.toISOString(),
   };
 }

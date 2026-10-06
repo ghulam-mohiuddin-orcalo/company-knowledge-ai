@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import type { AppConfig } from '@cka/config';
 import { Authorize } from '../authorization/authorize.decorator.js';
+import { CitationsRepository } from '../citations/citations.repository.js';
 import { ApiError } from '../common/api-error.js';
 import { readJsonObject } from '../common/request-body.js';
 import { APP_CONFIG } from '../config/config.module.js';
@@ -40,6 +41,7 @@ const invalid = (message: string) =>
 export class AskController {
   constructor(
     private readonly rag: RagService,
+    private readonly citations: CitationsRepository,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -67,16 +69,20 @@ export class AskController {
       );
     }
 
+    const scope = TenantScope.fromPrincipal(principal);
     const result = await this.rag.ask(
-      TenantScope.fromPrincipal(principal),
+      scope,
       principal.userId,
       conversationId,
       question,
       idempotencyKey ?? null,
     );
+    const citations = await this.citations.listForMessages(scope, [
+      result.answer.id,
+    ]);
     return {
       question: toMessageResponse(result.question),
-      answer: toMessageResponse(result.answer),
+      answer: toMessageResponse(result.answer, citations),
     };
   }
 }

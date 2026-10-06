@@ -33,11 +33,11 @@ Each run indexes the corpus into a fresh database for one tenant, and an identic
 | `answerableSufficientRate` | Evidence policy judged answerable questions sufficient |
 | `unanswerableAbstentionRate` | Evidence policy rejected unanswerable questions |
 | `unsupportedAnswerRate` | Unanswerable questions that got an answer (target 0) |
-| `sourceGroundingRate` | Answered questions that cite an expected source |
+| `sourceGroundingRate` | Answered questions whose persisted citations (E6) include an expected source |
 | `answerRate` | Answerable questions answered rather than abstained |
 | `latencyMs` | Retrieval latency, query embedding plus vector search (informational) |
 
-## Offline baseline (committed 2026-10-06)
+## Offline baseline (committed 2026-10-06; RAG grounding re-baselined with E6 citations)
 
 Offline evidence thresholds: top score ≥ 0.30, hit score ≥ 0.20 (`OFFLINE_EVALUATION_ENV`).
 
@@ -45,8 +45,8 @@ Offline evidence thresholds: top score ≥ 0.30, hit score ≥ 0.20 (`OFFLINE_EV
 |---|---|
 | Retrieval (`hashed-term-v1`) | hit@10 1.00 · evidence hit 1.00 · MRR 0.929 · p95 about 3 ms |
 | Evidence policy | 78.8% of answerable judged sufficient · 100% of unanswerable abstained |
-| RAG, extractive stand-in LLM | unsupported 0.00 · grounding 0.917 · answer rate 0.727 |
-| RAG, always-answer stand-in LLM | unsupported 0.00 · grounding 0.885 · answer rate 0.788 |
+| RAG, extractive stand-in LLM | unsupported 0.00 · grounding 1.00 · answer rate 0.727 |
+| RAG, always-answer stand-in LLM | unsupported 0.00 · grounding 0.962 · answer rate 0.788 |
 
 The always-answer stand-in fabricates an answer for any evidence it receives. It shows that the evidence policy alone keeps unanswerable questions from being answered.
 

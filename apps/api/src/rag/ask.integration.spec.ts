@@ -118,7 +118,19 @@ describe('Ask API (E5-T05)', () => {
       answer: expect.objectContaining({
         role: 'ASSISTANT',
         outcome: 'ANSWERED',
-        content: 'You receive 27 days of paid annual leave [SOURCE_1].',
+        content: 'You receive 27 days of paid annual leave [1].',
+        citations: [
+          {
+            id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+            ordinal: 1,
+            documentId: expect.any(String),
+            documentName: 'Handbook.docx',
+            locator: { page: null, section: null },
+            excerpt:
+              'Every employee receives 27 days of paid annual leave per year.',
+            available: true,
+          },
+        ],
       }),
     });
     // Hidden prompts, model and usage never reach the client.

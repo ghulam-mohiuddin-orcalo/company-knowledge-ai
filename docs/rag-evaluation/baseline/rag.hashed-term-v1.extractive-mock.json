@@ -4,6 +4,6 @@
   "answerable": 33,
   "unanswerable": 12,
   "unsupportedAnswerRate": 0,
-  "sourceGroundingRate": 0.9167,
+  "sourceGroundingRate": 1,
   "answerRate": 0.7273
 }

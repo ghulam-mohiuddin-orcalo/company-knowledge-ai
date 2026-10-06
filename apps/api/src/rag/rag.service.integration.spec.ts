@@ -149,7 +149,7 @@ describe('RAG orchestration (E5-T04)', () => {
     expect(result.answer).toMatchObject({
       role: 'ASSISTANT',
       outcome: 'ANSWERED',
-      content: 'Employees receive 27 days of paid annual leave [SOURCE_1].',
+      content: 'Employees receive 27 days of paid annual leave [1].',
       replyToMessageId: result.question.id,
       model: 'fake-llm',
     });

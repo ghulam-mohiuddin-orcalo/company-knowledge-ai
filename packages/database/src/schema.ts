@@ -6,6 +6,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -307,6 +308,10 @@ export const messages = pgTable(
       .defaultNow(),
   },
   (table) => [
+    unique('messages_id_organization_id_key').on(
+      table.id,
+      table.organizationId,
+    ),
     index('messages_conversation_id_created_at_idx').on(
       table.conversationId,
       table.createdAt,
@@ -331,5 +336,67 @@ export const messages = pgTable(
       sql`(${table.role} = 'USER' AND ${table.outcome} IS NULL AND ${table.replyToMessageId} IS NULL)
         OR (${table.role} = 'ASSISTANT' AND ${table.outcome} IS NOT NULL AND ${table.replyToMessageId} IS NOT NULL AND ${table.requestId} IS NULL)`,
     ),
+  ],
+);
+
+/** Where cited evidence sits in its document (no document text). */
+export interface CitationLocator {
+  page: number | null;
+  section: string | null;
+  charStart: number;
+  charEnd: number;
+}
+
+/**
+ * Server-created citation records (TDD §17, E6). Rows are created only from the
+ * retrieval hits used for the answer, never from model output. Excerpts are
+ * not copied here: they are read from the live chunk, so deleting a document
+ * removes its text from citations too.
+ */
+export const answerCitations = pgTable(
+  'answer_citations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull(),
+    messageId: uuid('message_id').notNull(),
+    documentId: uuid('document_id').notNull(),
+    // Nulled when deletion cleanup removes the chunk (the citation becomes unavailable).
+    chunkId: uuid('chunk_id').references(() => documentChunks.id, {
+      onDelete: 'set null',
+    }),
+    // Display order within the answer: [1], [2], ...
+    ordinal: integer('ordinal').notNull(),
+    // The transient prompt label the model cited (e.g. SOURCE_2), for traceability.
+    sourceLabel: text('source_label').notNull(),
+    locator: jsonb('locator').$type<CitationLocator>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('answer_citations_message_id_ordinal_key').on(
+      table.messageId,
+      table.ordinal,
+    ),
+    unique('answer_citations_message_id_source_label_key').on(
+      table.messageId,
+      table.sourceLabel,
+    ),
+    index('answer_citations_organization_id_document_id_idx').on(
+      table.organizationId,
+      table.documentId,
+    ),
+    // Citations always belong to the message's and the document's organization.
+    foreignKey({
+      name: 'answer_citations_message_tenant_fk',
+      columns: [table.messageId, table.organizationId],
+      foreignColumns: [messages.id, messages.organizationId],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'answer_citations_document_tenant_fk',
+      columns: [table.documentId, table.organizationId],
+      foreignColumns: [documents.id, documents.organizationId],
+    }).onDelete('restrict'),
+    check('answer_citations_ordinal_positive', sql`${table.ordinal} >= 1`),
   ],
 );

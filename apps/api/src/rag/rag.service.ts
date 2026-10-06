@@ -15,6 +15,12 @@ import {
 } from '../retrieval/evidence-policy.js';
 import { RetrievalService } from '../retrieval/retrieval.service.js';
 import type { TenantScope } from '../tenancy/tenant-scope.js';
+import { mapCitations } from '../citations/citation-mapping.js';
+import {
+  CitationsRepository,
+  CitedEvidenceUnavailableError,
+  type NewCitation,
+} from '../citations/citations.repository.js';
 import { buildRagPrompt, parseAnswer } from './prompt-builder.js';
 
 export const GENERATION_PROVIDER = Symbol('GENERATION_PROVIDER');
@@ -41,6 +47,7 @@ export class RagService {
   constructor(
     private readonly conversations: ConversationsService,
     private readonly messages: ConversationsRepository,
+    private readonly citations: CitationsRepository,
     private readonly retrieval: RetrievalService,
     @Inject(EVIDENCE_POLICY) private readonly policy: EvidencePolicy,
     @Inject(GENERATION_PROVIDER)
@@ -112,13 +119,37 @@ export class RagService {
         `${parsed.kind === 'answer' ? 'Answered' : `No answer (${parsed.reason})`}: ${context} ` +
           `sources ${prompt.sources.length} finish ${result.finishReason}`,
       );
-      return this.save(scope, question, {
-        content: parsed.kind === 'answer' ? parsed.text : NO_ANSWER_MESSAGE,
-        outcome: parsed.kind === 'answer' ? 'ANSWERED' : 'NO_ANSWER',
+      const generated = {
         started,
         model: result.model,
         usage: result.usage,
-      });
+      };
+      if (parsed.kind !== 'answer') {
+        return this.save(scope, question, {
+          ...generated,
+          content: NO_ANSWER_MESSAGE,
+          outcome: 'NO_ANSWER',
+        });
+      }
+      // Citations come only from the hits sent in this prompt (BR-04).
+      const mapped = mapCitations(parsed.text, prompt.sources);
+      try {
+        return await this.save(scope, question, {
+          ...generated,
+          content: mapped.text,
+          outcome: 'ANSWERED',
+          citations: mapped.citations,
+        });
+      } catch (error) {
+        if (!(error instanceof CitedEvidenceUnavailableError)) throw error;
+        // A cited document was deleted while answering: never cite missing evidence.
+        this.logger.log(`No answer (EVIDENCE_REMOVED): ${context}`);
+        return this.save(scope, question, {
+          ...generated,
+          content: NO_ANSWER_MESSAGE,
+          outcome: 'NO_ANSWER',
+        });
+      }
     } catch (error) {
       if (error instanceof AiProviderError) {
         this.logger.warn(`AI provider failure (${error.code}): ${context}`);
@@ -141,16 +172,26 @@ export class RagService {
       started: number;
       model?: string;
       usage?: { inputTokens: number | null; outputTokens: number | null };
+      citations?: NewCitation[];
     },
   ): Promise<MessageRecord> {
-    return this.messages.insertAssistantReply(scope, question.conversationId, {
-      replyToMessageId: question.id,
-      content: reply.content,
-      outcome: reply.outcome,
-      model: reply.model ?? null,
-      latencyMs: Math.round(performance.now() - reply.started),
-      inputTokens: reply.usage?.inputTokens ?? null,
-      outputTokens: reply.usage?.outputTokens ?? null,
-    });
+    const citations = reply.citations ?? [];
+    return this.messages.insertAssistantReply(
+      scope,
+      question.conversationId,
+      {
+        replyToMessageId: question.id,
+        content: reply.content,
+        outcome: reply.outcome,
+        model: reply.model ?? null,
+        latencyMs: Math.round(performance.now() - reply.started),
+        inputTokens: reply.usage?.inputTokens ?? null,
+        outputTokens: reply.usage?.outputTokens ?? null,
+      },
+      citations.length === 0
+        ? undefined
+        : (tx, messageId) =>
+            this.citations.insertForMessage(tx, scope, messageId, citations),
+    );
   }
 }

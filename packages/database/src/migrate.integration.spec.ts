@@ -50,6 +50,7 @@ describe('database migrations', () => {
          WHERE table_schema = 'public' ORDER BY table_name`,
       );
       expect(tables.rows.map((row) => row.table_name)).toEqual([
+        'answer_citations',
         'conversations',
         'document_chunks',
         'documents',

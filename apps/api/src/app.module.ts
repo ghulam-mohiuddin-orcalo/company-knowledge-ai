@@ -6,6 +6,7 @@ import { AuthorizationGuard } from './authorization/authorization.guard.js';
 import { AuthorizationModule } from './authorization/authorization.module.js';
 import { ErrorEnvelopeFilter } from './common/error-envelope.filter.js';
 import { type ApiConfig, ConfigModule } from './config/config.module.js';
+import { CitationsModule } from './citations/citations.module.js';
 import { ConversationsModule } from './conversations/conversations.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
@@ -37,6 +38,7 @@ export class AppModule {
         RetrievalModule,
         ConversationsModule,
         RagModule,
+        CitationsModule,
       ],
       providers: [
         { provide: APP_FILTER, useClass: ErrorEnvelopeFilter },
