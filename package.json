@@ -1,0 +1,36 @@
+{
+  "name": "company-knowledge-ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:packages": "pnpm -r --filter \"./packages/*\" build",
+    "dev": "pnpm build:packages && pnpm -r --parallel --filter \"./apps/*\" dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm build:packages && pnpm -r typecheck",
+    "test": "pnpm build:packages && pnpm -r test",
+    "test:integration": "pnpm build:packages && pnpm -r test:integration",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @cka/database db:generate",
+    "db:migrate": "pnpm build:packages && pnpm --filter @cka/database db:migrate",
+    "infra:up": "docker compose -f infra/docker/compose.yaml up -d --wait postgres object-storage && docker compose -f infra/docker/compose.yaml run --rm storage-init",
+    "infra:down": "docker compose -f infra/docker/compose.yaml down",
+    "infra:check": "sh infra/docker/check.sh"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.9"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.9.1",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.9.1"
+}
