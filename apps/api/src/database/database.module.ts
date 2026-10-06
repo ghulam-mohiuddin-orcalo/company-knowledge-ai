@@ -7,13 +7,16 @@ import {
 } from '@nestjs/common';
 import type { AppConfig } from '@cka/config';
 import {
+  createDatabase,
   createDatabasePool,
+  type Database,
   type DatabasePool,
   describeDatabaseError,
 } from '@cka/database';
 import { APP_CONFIG } from '../config/config.module.js';
 
 export const DATABASE_POOL = Symbol('DATABASE_POOL');
+export const DATABASE = Symbol('DATABASE');
 
 @Global()
 @Module({
@@ -28,8 +31,13 @@ export const DATABASE_POOL = Symbol('DATABASE_POOL');
         );
       },
     },
+    {
+      provide: DATABASE,
+      inject: [DATABASE_POOL],
+      useFactory: (pool: DatabasePool): Database => createDatabase(pool),
+    },
   ],
-  exports: [DATABASE_POOL],
+  exports: [DATABASE_POOL, DATABASE],
 })
 export class DatabaseModule implements OnApplicationShutdown {
   constructor(@Inject(DATABASE_POOL) private readonly pool: DatabasePool) {}

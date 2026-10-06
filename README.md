@@ -65,6 +65,13 @@ The pgvector extension is available but not enabled by this stack; enabling it i
 
 The API and worker validate their environment at startup through `packages/config` and exit with a list of missing or invalid variable names (values and secrets are never printed). For local development they read the repository-root `.env`; real environment variables take precedence. See `.env.example` for all supported variables. `apps/web` must not import backend configuration.
 
+## Authentication and tenancy
+
+- The API verifies OIDC JWT access tokens (`AUTH_ISSUER_URL`, `AUTH_AUDIENCE`, `AUTH_JWKS_URL`) and maps the token subject to an internal user on first sign-in. Provider roles/claims are never used for authorization.
+- Roles come from the database: `MEMBER` / `ORG_ADMIN` per organization membership; `PLATFORM_ADMIN` is a user flag set only by operators.
+- The active organization is resolved from the caller's memberships. Multi-organization users select one with the `X-Organization-Id` header, which is honoured only for their own active memberships.
+- Errors use the envelope `{ "error": { "code", "message" } }`.
+
 ## Health checks
 
 - `GET /health` (API): liveness only; never depends on the database or AI providers.
@@ -84,7 +91,7 @@ The schema is defined with Drizzle in `packages/database/src/schema.ts`; version
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
 - **quality**: frozen-lockfile install, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
-- **database**: starts the `postgres` service from `infra/docker/compose.yaml`, runs `pnpm db:migrate` against the empty database, then `pnpm test:integration`.
+- **database**: starts the `postgres` service from `infra/docker/compose.yaml`, runs `pnpm db:migrate` against the empty database, then `pnpm test:integration` and the cross-tenant security suite (`pnpm test:security`).
 
 Any failing step fails the pull request check. Make both jobs required status checks in branch protection.
 

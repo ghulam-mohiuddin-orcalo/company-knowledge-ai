@@ -3,14 +3,17 @@ import {
   Get,
   Header,
   Inject,
+  HttpStatus,
   Logger,
-  ServiceUnavailableException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   type DatabasePool,
   describeDatabaseError,
   pingDatabase,
 } from '@cka/database';
+import { Public } from '../auth/public.decorator.js';
 import { DATABASE_POOL } from '../database/database.module.js';
 
 const READINESS_TIMEOUT_MS = 2000;
@@ -22,6 +25,7 @@ export interface ReadinessResponse {
   checks: { database: CheckStatus };
 }
 
+@Public()
 @Controller()
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);
@@ -38,7 +42,9 @@ export class HealthController {
   /** Readiness: dependencies required to serve traffic are reachable (PostgreSQL). */
   @Get('ready')
   @Header('Cache-Control', 'no-store')
-  async ready(): Promise<ReadinessResponse> {
+  async ready(
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<ReadinessResponse> {
     try {
       await pingDatabase(this.pool, READINESS_TIMEOUT_MS);
       return { status: 'ok', checks: { database: 'up' } };
@@ -47,10 +53,8 @@ export class HealthController {
       this.logger.warn(
         `Readiness check failed: database ${describeDatabaseError(error)}`,
       );
-      throw new ServiceUnavailableException({
-        status: 'unavailable',
-        checks: { database: 'down' },
-      } satisfies ReadinessResponse);
+      response.status(HttpStatus.SERVICE_UNAVAILABLE);
+      return { status: 'unavailable', checks: { database: 'down' } };
     }
   }
 }

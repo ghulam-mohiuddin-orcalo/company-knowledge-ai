@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   pgEnum,
   pgTable,
@@ -44,6 +45,9 @@ export const users = pgTable('users', {
   authSubject: text('auth_subject').notNull().unique(),
   email: text('email').notNull(),
   displayName: text('display_name'),
+  // Platform operator (cross-tenant operations). Not an organization role and never
+  // derived from identity-provider claims; granted only through controlled database operations.
+  isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
   ...timestamps,
 });
 
