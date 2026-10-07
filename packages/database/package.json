@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
     }
   },
   "files": [
@@ -19,6 +23,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node dist/migrate.js",
+    "db:seed:demo": "node dist/seed-demo.js",
+    "db:provision": "node dist/provision.js",
+    "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {

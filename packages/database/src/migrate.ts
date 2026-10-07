@@ -3,6 +3,8 @@ import { loadDatabaseConfigOrExit, loadEnvFileIfPresent } from '@cka/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
+import { isMainModule } from './cli.js';
+import { describeDatabaseError } from './client.js';
 
 const migrationsFolder = fileURLToPath(
   new URL('../migrations', import.meta.url),
@@ -19,22 +21,14 @@ export async function runMigrations(databaseUrl: string): Promise<void> {
 }
 
 // Explicit deployment/CI/local step; never run automatically on application startup.
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   loadEnvFileIfPresent(new URL('../../../.env', import.meta.url));
   const { url } = loadDatabaseConfigOrExit();
   try {
     await runMigrations(url.reveal());
     console.log('Database migrations applied');
   } catch (error) {
-    // Report the underlying driver error (Drizzle wraps it) without the connection string.
-    const cause =
-      error instanceof Error && error.cause instanceof Error
-        ? error.cause
-        : error;
-    const { code } = (cause ?? {}) as { code?: string };
-    console.error(
-      `Database migration failed${code ? ` (code ${code})` : ''}: ${cause instanceof Error ? cause.message : 'unknown error'}`,
-    );
+    console.error(`Database migration failed: ${describeDatabaseError(error)}`);
     process.exit(1);
   }
 }

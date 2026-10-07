@@ -1,2 +1,17 @@
-// Backend-only database package (schema + migrations). Never import into apps/web.
+// Backend-only database package (schema, migrations, connection helpers). Never import into apps/web.
 export * from './schema.js';
+export {
+  createDatabase,
+  createDatabasePool,
+  describeDatabaseError,
+  isDatabaseUnavailableError,
+  pingDatabase,
+  type Database,
+  type DatabasePool,
+} from './client.js';
+export { runMigrations } from './migrate.js';
+export {
+  type AuditAction,
+  type AuditEvent,
+  recordAuditEvent,
+} from './audit.js';

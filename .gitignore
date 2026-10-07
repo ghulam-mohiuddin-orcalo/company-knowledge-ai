@@ -10,6 +10,7 @@ next-env.d.ts
 
 # Test output
 coverage/
+eval-reports/
 
 # Environment files (never commit secrets)
 .env
@@ -26,3 +27,11 @@ pnpm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Playwright output
+test-results/
+playwright-report/
+
+# Deployment environment files hold secrets: keep them outside the repository.
+infra/deploy/*.env
+!infra/deploy/local.env

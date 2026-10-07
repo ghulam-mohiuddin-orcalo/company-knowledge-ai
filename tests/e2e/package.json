@@ -1,0 +1,27 @@
+{
+  "name": "@cka/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node support/prepare-database.mjs && playwright test",
+    "test:deploy": "playwright test --config playwright.deploy.config.ts"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@cka/ai": "workspace:*",
+    "@cka/config": "workspace:*",
+    "@cka/database": "workspace:*",
+    "@cka/eslint-config": "workspace:*",
+    "@cka/ingestion": "workspace:*",
+    "@cka/tsconfig": "workspace:*",
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
+    "eslint": "^9.39.0",
+    "pg": "^8.23.1",
+    "typescript": "~6.0.3"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "embeddingModel": "hashed-term-v1",
+  "candidates": 10,
+  "answerable": 33,
+  "unanswerable": 12,
+  "hitRateCandidates": 1,
+  "hitRateEvidence": 1,
+  "meanReciprocalRank": 0.9293,
+  "answerableSufficientRate": 0.7879,
+  "unanswerableAbstentionRate": 1,
+  "missedQuestions": []
+}

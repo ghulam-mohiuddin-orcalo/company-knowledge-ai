@@ -1,5 +1,62 @@
-import { Module } from '@nestjs/common';
+import { type DynamicModule, Module } from '@nestjs/common';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { AuthenticationGuard } from './auth/authentication.guard.js';
+import { AuthModule } from './auth/auth.module.js';
+import { AuthorizationGuard } from './authorization/authorization.guard.js';
+import { AuthorizationModule } from './authorization/authorization.module.js';
+import { ErrorEnvelopeFilter } from './common/error-envelope.filter.js';
+import { type ApiConfig, ConfigModule } from './config/config.module.js';
+import { CitationsModule } from './citations/citations.module.js';
+import { ConversationsModule } from './conversations/conversations.module.js';
+import { DatabaseModule } from './database/database.module.js';
+import { DocumentsModule } from './documents/documents.module.js';
+import { HealthModule } from './health/health.module.js';
+import { MeModule } from './me/me.module.js';
+import { RagModule } from './rag/rag.module.js';
+import {
+  IpRateLimitGuard,
+  OperationRateLimitGuard,
+} from './rate-limit/rate-limit.guards.js';
+import { RateLimitModule } from './rate-limit/rate-limit.module.js';
+import { MetricsModule } from './metrics/metrics.module.js';
+import { RetrievalModule } from './retrieval/retrieval.module.js';
+import { StorageModule } from './storage/storage.module.js';
+import { OrganizationsModule } from './organizations/organizations.module.js';
+import { TenancyModule } from './tenancy/tenancy.module.js';
 
-// Feature modules (auth, tenancy, documents, ...) are registered here by their tickets.
+// Feature modules (documents, conversations, ...) are registered here by their tickets.
 @Module({})
-export class AppModule {}
+export class AppModule {
+  static forRoot(apiConfig: ApiConfig): DynamicModule {
+    return {
+      module: AppModule,
+      imports: [
+        ConfigModule.forRoot(apiConfig),
+        DatabaseModule,
+        RateLimitModule,
+        MetricsModule,
+        StorageModule,
+        AuthModule,
+        OrganizationsModule,
+        TenancyModule,
+        AuthorizationModule,
+        HealthModule,
+        MeModule,
+        DocumentsModule,
+        RetrievalModule,
+        ConversationsModule,
+        RagModule,
+        CitationsModule,
+      ],
+      providers: [
+        { provide: APP_FILTER, useClass: ErrorEnvelopeFilter },
+        // Global guards run in this order: IP limit, authenticate, authorize
+        // (incl. tenant), then per-user operation limits.
+        { provide: APP_GUARD, useExisting: IpRateLimitGuard },
+        { provide: APP_GUARD, useExisting: AuthenticationGuard },
+        { provide: APP_GUARD, useExisting: AuthorizationGuard },
+        { provide: APP_GUARD, useExisting: OperationRateLimitGuard },
+      ],
+    };
+  }
+}

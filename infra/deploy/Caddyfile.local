@@ -1,0 +1,11 @@
+# Rehearsal edge: same sites as production, certificates from Caddy's local CA,
+# plus the mock identity provider on its own HTTPS origin.
+{
+	local_certs
+}
+
+import sites.caddy
+
+auth.localhost {
+	reverse_proxy oidc:8080
+}

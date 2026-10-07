@@ -1,6 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "tests/*"
 allowBuilds:
   esbuild: true
   unrs-resolver: false
+patchedDependencies:
+  drizzle-orm@0.45.3: patches/drizzle-orm@0.45.3.patch

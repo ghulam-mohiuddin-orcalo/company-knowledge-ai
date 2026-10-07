@@ -1,0 +1,16 @@
+Northwind Analytics IT Security Policy
+
+Passwords and sign-in
+All company accounts must use multi-factor authentication. Passwords must be at least 14 characters long and must never be shared or reused across services.
+
+Lost or stolen devices
+Report a lost or stolen laptop or phone to the IT Service Desk within one hour by calling extension 4357. The IT Service Desk will remotely lock and wipe the device.
+
+Phishing
+Forward suspicious emails to phishing@northwind.example using the Report Phishing button. Never open attachments from unknown senders.
+
+Software installation
+Only software from the approved company catalogue may be installed on company laptops. Requests for new software are reviewed by the security team within five working days.
+
+Data classification
+Confidential customer data must never be stored on personal devices or personal cloud storage.

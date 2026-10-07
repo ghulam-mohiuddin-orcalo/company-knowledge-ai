@@ -3,31 +3,49 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:security": "vitest run --config vitest.security.config.ts",
+    "eval": "vitest run --config vitest.eval.config.ts"
   },
   "dependencies": {
+    "@cka/ai": "workspace:*",
     "@cka/config": "workspace:*",
+    "@cka/contracts": "workspace:*",
+    "@cka/database": "workspace:*",
+    "@cka/observability": "workspace:*",
+    "@cka/storage": "workspace:*",
     "@nestjs/common": "^12.1.2",
     "@nestjs/core": "^12.1.2",
     "@nestjs/platform-express": "^12.1.2",
+    "drizzle-orm": "^0.45.3",
+    "jose": "^6.2.12",
+    "multer": "^2.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "@cka/eslint-config": "workspace:*",
+    "@cka/ingestion": "workspace:*",
     "@cka/tsconfig": "workspace:*",
     "@nestjs/cli": "^12.0.8",
     "@nestjs/schematics": "^12.0.6",
     "@nestjs/testing": "^12.1.2",
     "@types/express": "^5.0.6",
+    "@types/multer": "^2.0.0",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "eslint": "^9.39.0",
+    "pg": "^8.23.1",
     "typescript": "~6.0.3",
     "vitest": "^5.0.3"
   }

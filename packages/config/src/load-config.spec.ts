@@ -3,6 +3,9 @@ import {
   ConfigValidationError,
   loadConfig,
   loadDatabaseConfig,
+  requireAuthConfig,
+  requireEmbeddingConfig,
+  requireGenerationConfig,
 } from './load-config.js';
 
 const DB_PASSWORD = 'db-password-should-not-leak';
@@ -52,6 +55,7 @@ describe('loadConfig', () => {
       pollIntervalMs: 2000,
       maxAttempts: 3,
       retryBackoffMs: 5000,
+      leaseMs: 600000,
     });
     expect(config.ai.apiKey).toBeUndefined();
   });
@@ -94,6 +98,54 @@ describe('loadConfig', () => {
     ]);
   });
 
+  it('validates evidence thresholds', () => {
+    expect(loadConfig(validEnv).evidence).toEqual({
+      minTopScore: 0.35,
+      minHitScore: 0.25,
+    });
+    expect(
+      captureError({
+        ...validEnv,
+        EVIDENCE_MIN_TOP_SCORE: '0.2',
+        EVIDENCE_MIN_HIT_SCORE: '0.3',
+      }).problems,
+    ).toEqual([
+      'EVIDENCE_MIN_HIT_SCORE: must not exceed EVIDENCE_MIN_TOP_SCORE',
+    ]);
+    expect(
+      captureError({ ...validEnv, EVIDENCE_MIN_TOP_SCORE: '2' }).problems,
+    ).toEqual(['EVIDENCE_MIN_TOP_SCORE: must not exceed the maximum']);
+  });
+
+  it('validates chunking settings', () => {
+    expect(loadConfig(validEnv).chunking).toEqual({
+      sizeTokens: 800,
+      overlapTokens: 120,
+    });
+    expect(
+      captureError({
+        ...validEnv,
+        CHUNK_SIZE_TOKENS: '100',
+        CHUNK_OVERLAP_TOKENS: '100',
+      }).problems,
+    ).toEqual(['CHUNK_OVERLAP_TOKENS: must be smaller than CHUNK_SIZE_TOKENS']);
+  });
+
+  it('only allows upload types that can be extracted', () => {
+    expect(
+      loadConfig({ ...validEnv, UPLOAD_ALLOWED_MIME_TYPES: 'text/plain' })
+        .uploads.allowedMimeTypes,
+    ).toEqual(['text/plain']);
+    expect(
+      captureError({
+        ...validEnv,
+        UPLOAD_ALLOWED_MIME_TYPES: 'text/plain,image/png',
+      }).problems,
+    ).toEqual([
+      'UPLOAD_ALLOWED_MIME_TYPES: must be one of application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/plain',
+    ]);
+  });
+
   it('reports invalid values without echoing them', () => {
     const error = captureError({
       ...validEnv,
@@ -119,6 +171,7 @@ describe('loadConfig', () => {
     const config = loadConfig({
       ...validEnv,
       AI_API_KEY: 'ai-key-should-not-leak',
+      METRICS_TOKEN: 'metrics-token-should-not-leak',
     });
     const printed = [
       JSON.stringify(config),
@@ -130,6 +183,7 @@ describe('loadConfig', () => {
       expect(output).not.toContain(DB_PASSWORD);
       expect(output).not.toContain(S3_SECRET);
       expect(output).not.toContain('ai-key-should-not-leak');
+      expect(output).not.toContain('metrics-token-should-not-leak');
       expect(output).toContain('[REDACTED]');
     }
   });
@@ -140,6 +194,62 @@ describe('loadConfig', () => {
     expect(error.message).toContain('APP_PUBLIC_URL: is required');
     expect(error.message).not.toContain(DB_PASSWORD);
     expect(error.message).not.toContain(S3_SECRET);
+  });
+
+  it('counts trusted proxy hops, treating true as a single proxy', () => {
+    expect(loadConfig(validEnv).trustProxy).toBe(0);
+    expect(loadConfig({ ...validEnv, TRUST_PROXY: 'false' }).trustProxy).toBe(
+      0,
+    );
+    expect(loadConfig({ ...validEnv, TRUST_PROXY: 'true' }).trustProxy).toBe(1);
+    expect(loadConfig({ ...validEnv, TRUST_PROXY: '2' }).trustProxy).toBe(2);
+    expect(captureError({ ...validEnv, TRUST_PROXY: 'yes' }).message).toContain(
+      'TRUST_PROXY',
+    );
+  });
+
+  describe('in production', () => {
+    const production = {
+      ...validEnv,
+      NODE_ENV: 'production',
+      APP_PUBLIC_URL: 'https://app.example.com',
+      API_PUBLIC_URL: 'https://api.example.com',
+      AUTH_ISSUER_URL: 'https://login.example.com/',
+      AUTH_JWKS_URL: 'https://login.example.com/.well-known/jwks.json',
+    };
+
+    it('accepts https URLs', () => {
+      expect(loadConfig(production).app.nodeEnv).toBe('production');
+    });
+
+    it('requires https for public and token-verification URLs', () => {
+      const error = captureError({
+        ...production,
+        APP_PUBLIC_URL: 'http://app.example.com',
+        AUTH_JWKS_URL: 'http://login.example.com/jwks',
+        CORS_ALLOWED_ORIGINS: 'https://app.example.com,http://other.example',
+      });
+
+      expect(error.problems).toEqual([
+        'APP_PUBLIC_URL: must use https in production',
+        'AUTH_JWKS_URL: must use https in production',
+        'CORS_ALLOWED_ORIGINS: must use https in production',
+      ]);
+    });
+
+    it('allows plain http to this machine only', () => {
+      expect(() =>
+        loadConfig({
+          ...production,
+          APP_PUBLIC_URL: 'http://localhost:3100',
+          API_PUBLIC_URL: 'http://127.0.0.1:3101',
+        }),
+      ).not.toThrow();
+      expect(
+        captureError({ ...production, API_PUBLIC_URL: 'http://localhost.evil' })
+          .problems,
+      ).toEqual(['API_PUBLIC_URL: must use https in production']);
+    });
   });
 });
 
@@ -165,5 +275,101 @@ describe('loadDatabaseConfig', () => {
     expect(() => loadDatabaseConfig({})).toThrow(
       new ConfigValidationError(['DATABASE_URL: is required']),
     );
+  });
+});
+
+describe('requireAuthConfig', () => {
+  it('names every missing authentication variable', () => {
+    expect(() => requireAuthConfig(loadConfig(validEnv))).toThrow(
+      new ConfigValidationError([
+        'AUTH_ISSUER_URL: is required',
+        'AUTH_AUDIENCE: is required',
+        'AUTH_JWKS_URL: is required',
+      ]),
+    );
+  });
+
+  it('returns authentication settings with claim defaults', () => {
+    const config = loadConfig({
+      ...validEnv,
+      AUTH_ISSUER_URL: 'https://idp.example/',
+      AUTH_AUDIENCE: 'cka-api',
+      AUTH_JWKS_URL: 'https://idp.example/.well-known/jwks.json',
+    });
+
+    expect(requireAuthConfig(config)).toEqual({
+      issuerUrl: 'https://idp.example/',
+      audience: 'cka-api',
+      jwksUrl: 'https://idp.example/.well-known/jwks.json',
+      emailClaim: 'email',
+      nameClaim: 'name',
+    });
+  });
+});
+
+describe('requireEmbeddingConfig', () => {
+  it('names every missing embedding variable', () => {
+    expect(() => requireEmbeddingConfig(loadConfig(validEnv))).toThrow(
+      new ConfigValidationError([
+        'AI_PROVIDER: is required',
+        'AI_EMBEDDING_MODEL: is required',
+        'AI_EMBEDDING_DIMENSIONS: is required',
+      ]),
+    );
+  });
+
+  it('returns embedding settings with defaults and a redacted key', () => {
+    const embedding = requireEmbeddingConfig(
+      loadConfig({
+        ...validEnv,
+        AI_PROVIDER: 'openai-compatible',
+        AI_API_KEY: 'sk-should-not-leak',
+        AI_EMBEDDING_MODEL: 'text-embedding-3-small',
+        AI_EMBEDDING_DIMENSIONS: '1536',
+      }),
+    );
+
+    expect(embedding).toMatchObject({
+      provider: 'openai-compatible',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'text-embedding-3-small',
+      dimensions: 1536,
+      batchSize: 64,
+      requestTimeoutMs: 30000,
+    });
+    expect(JSON.stringify(embedding)).not.toContain('sk-should-not-leak');
+  });
+
+  it('rejects unknown providers', () => {
+    expect(
+      captureError({ ...validEnv, AI_PROVIDER: 'some-vendor' }).problems,
+    ).toEqual(['AI_PROVIDER: must be one of openai-compatible']);
+  });
+});
+
+describe('requireGenerationConfig', () => {
+  it('names every missing generation variable', () => {
+    expect(() => requireGenerationConfig(loadConfig(validEnv))).toThrow(
+      new ConfigValidationError([
+        'AI_PROVIDER: is required',
+        'AI_GENERATION_MODEL: is required',
+      ]),
+    );
+  });
+
+  it('returns generation settings with defaults', () => {
+    expect(
+      requireGenerationConfig(
+        loadConfig({
+          ...validEnv,
+          AI_PROVIDER: 'openai-compatible',
+          AI_GENERATION_MODEL: 'gpt-test',
+        }),
+      ),
+    ).toMatchObject({
+      model: 'gpt-test',
+      maxOutputTokens: 1024,
+      requestTimeoutMs: 30000,
+    });
   });
 });
