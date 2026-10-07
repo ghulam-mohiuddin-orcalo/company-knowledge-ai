@@ -7,7 +7,9 @@ export type AuditAction =
   | 'DOCUMENT_DELETED'
   | 'INGESTION_SUCCEEDED'
   | 'INGESTION_FAILED'
-  | 'PLATFORM_ORGANIZATIONS_LISTED';
+  | 'PLATFORM_ORGANIZATIONS_LISTED'
+  | 'ORGANIZATION_PROVISIONED'
+  | 'MEMBERSHIP_GRANTED';
 
 export interface AuditEvent {
   action: AuditAction;

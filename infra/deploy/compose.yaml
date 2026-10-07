@@ -1,0 +1,93 @@
+# Hosted deployment (E9-T02): web, API and worker as separate services from the
+# same release, behind one TLS edge. Runs on any Docker host (a VM is enough
+# for staging/pilot); PostgreSQL+pgvector, object storage, the identity
+# provider and the AI provider are external managed services reached through
+# the environment file. See docs/deployment/RUNBOOK.md.
+#
+#   docker compose -f infra/deploy/compose.yaml run --rm migrate   # explicit step
+#   docker compose -f infra/deploy/compose.yaml up -d
+#
+# Only `edge` publishes ports. The worker has no ingress at all.
+name: cka-app
+
+x-backend: &backend
+  # Secrets and settings come from a host-side file (never committed), e.g.
+  # rendered from the platform secret manager. Validated at startup.
+  env_file:
+    - path: ${CKA_ENV_FILE:-production.env}
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ['no-new-privileges:true']
+
+services:
+  edge:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports:
+      - '${HTTP_PORT:-80}:80'
+      - '${HTTPS_PORT:-443}:443'
+      - '${HTTPS_PORT:-443}:443/udp'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN (e.g. app.example.com)}
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN (e.g. api.example.com)}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL (certificate expiry notices)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites.caddy:/etc/caddy/sites.caddy:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [edge]
+
+  web:
+    image: ${CKA_WEB_IMAGE:?set CKA_WEB_IMAGE (built per environment)}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp, /app/apps/web/.next/cache]
+    security_opt: ['no-new-privileges:true']
+    networks: [edge]
+
+  api:
+    <<: *backend
+    image: ${CKA_API_IMAGE:?set CKA_API_IMAGE}
+    environment:
+      PORT: '3001'
+      # Exactly one proxy (edge) appends the client IP; see the runbook when a
+      # cloud load balancer sits in front of the edge.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+    networks: [edge, backend]
+
+  worker:
+    <<: *backend
+    image: ${CKA_WORKER_IMAGE:?set CKA_WORKER_IMAGE}
+    networks: [backend]
+
+  # Deployment steps (explicit, never run by every replica on startup).
+  migrate:
+    <<: *backend
+    image: ${CKA_API_IMAGE:?set CKA_API_IMAGE}
+    profiles: [ops]
+    restart: 'no'
+    command: ['node', 'node_modules/@cka/database/dist/migrate.js']
+    networks: [backend]
+
+  # Operator tenant provisioning:
+  #   docker compose ... run --rm provision --organization "Acme" --admin '<sub>:<email>'
+  provision:
+    <<: *backend
+    image: ${CKA_API_IMAGE:?set CKA_API_IMAGE}
+    profiles: [ops]
+    restart: 'no'
+    entrypoint: ['node', 'node_modules/@cka/database/dist/provision.js']
+    networks: [backend]
+
+networks:
+  # Edge <-> web/API traffic.
+  edge: {}
+  # API/worker egress to managed PostgreSQL, storage and providers; no ingress.
+  backend: {}
+
+volumes:
+  # TLS certificates and keys (ACME account): keep across redeploys.
+  caddy-data: {}
+  caddy-config: {}

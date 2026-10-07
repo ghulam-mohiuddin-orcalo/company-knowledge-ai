@@ -125,6 +125,21 @@ describe('rate limiting and abuse controls (E8-T03)', () => {
     expect((await from('198.51.100.1')).status).toBe(429);
   });
 
+  it('behind a trusted proxy, ignores client-supplied X-Forwarded-For entries', async () => {
+    // The proxy appends the real client IP; anything to its left came from the client.
+    const api = await start({
+      RATE_LIMIT_REQUESTS_PER_IP: '1',
+      TRUST_PROXY: '1',
+    });
+    const spoofed = (n: number) =>
+      api.request('/v1/me', {
+        headers: { 'x-forwarded-for': `203.0.113.${n}, 198.51.100.7` },
+      });
+
+    expect((await spoofed(1)).status).toBe(401);
+    expect((await spoofed(2)).status).toBe(429);
+  });
+
   it('throttles repeated authentication failures before verifying tokens', async () => {
     const api = await start({ RATE_LIMIT_AUTH_FAILURES_PER_IP: '3' });
     const valid = await idp.token('rl-auth-user');

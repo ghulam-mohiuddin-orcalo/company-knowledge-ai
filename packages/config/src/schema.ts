@@ -133,8 +133,18 @@ export const envSchema = z.object({
   RATE_LIMIT_AUTH_FAILURES_PER_IP: positiveInt.default(20),
   RATE_LIMIT_ASKS_PER_USER: positiveInt.default(20),
   RATE_LIMIT_UPLOADS_PER_USER: positiveInt.default(30),
-  // Behind a load balancer/proxy, trust X-Forwarded-For for client IPs.
-  TRUST_PROXY: booleanFlag.default(false),
+  // Number of reverse proxies in front of the API whose X-Forwarded-For entries
+  // are trusted for client IPs (rate limits). Only the entries those proxies
+  // appended are used, so clients cannot spoof their IP. 'false' = 0 (direct
+  // exposure), 'true' = 1 (a single TLS proxy/load balancer).
+  TRUST_PROXY: z
+    .union([
+      z
+        .enum(['true', 'false'])
+        .transform((value) => (value === 'true' ? 1 : 0)),
+      z.coerce.number().int().min(0).max(10),
+    ])
+    .default(0),
   // Bearer token for GET /metrics (E8-T05). Unset: the endpoint is disabled.
   METRICS_TOKEN: z
     .string()

@@ -65,4 +65,5 @@ createServer((request, response) => {
       usage: { prompt_tokens: 100, completion_tokens: 20 },
     });
   });
-}).listen(PORT, '127.0.0.1');
+  // Loopback by default; the local deployment stack sets AI_HOST=0.0.0.0.
+}).listen(PORT, process.env.AI_HOST ?? '127.0.0.1');

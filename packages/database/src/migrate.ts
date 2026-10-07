@@ -3,6 +3,7 @@ import { loadDatabaseConfigOrExit, loadEnvFileIfPresent } from '@cka/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
+import { isMainModule } from './cli.js';
 import { describeDatabaseError } from './client.js';
 
 const migrationsFolder = fileURLToPath(
@@ -20,7 +21,7 @@ export async function runMigrations(databaseUrl: string): Promise<void> {
 }
 
 // Explicit deployment/CI/local step; never run automatically on application startup.
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   loadEnvFileIfPresent(new URL('../../../.env', import.meta.url));
   const { url } = loadDatabaseConfigOrExit();
   try {

@@ -31,3 +31,7 @@ pnpm-debug.log*
 # Playwright output
 test-results/
 playwright-report/
+
+# Deployment environment files hold secrets: keep them outside the repository.
+infra/deploy/*.env
+!infra/deploy/local.env

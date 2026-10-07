@@ -195,6 +195,62 @@ describe('loadConfig', () => {
     expect(error.message).not.toContain(DB_PASSWORD);
     expect(error.message).not.toContain(S3_SECRET);
   });
+
+  it('counts trusted proxy hops, treating true as a single proxy', () => {
+    expect(loadConfig(validEnv).trustProxy).toBe(0);
+    expect(loadConfig({ ...validEnv, TRUST_PROXY: 'false' }).trustProxy).toBe(
+      0,
+    );
+    expect(loadConfig({ ...validEnv, TRUST_PROXY: 'true' }).trustProxy).toBe(1);
+    expect(loadConfig({ ...validEnv, TRUST_PROXY: '2' }).trustProxy).toBe(2);
+    expect(captureError({ ...validEnv, TRUST_PROXY: 'yes' }).message).toContain(
+      'TRUST_PROXY',
+    );
+  });
+
+  describe('in production', () => {
+    const production = {
+      ...validEnv,
+      NODE_ENV: 'production',
+      APP_PUBLIC_URL: 'https://app.example.com',
+      API_PUBLIC_URL: 'https://api.example.com',
+      AUTH_ISSUER_URL: 'https://login.example.com/',
+      AUTH_JWKS_URL: 'https://login.example.com/.well-known/jwks.json',
+    };
+
+    it('accepts https URLs', () => {
+      expect(loadConfig(production).app.nodeEnv).toBe('production');
+    });
+
+    it('requires https for public and token-verification URLs', () => {
+      const error = captureError({
+        ...production,
+        APP_PUBLIC_URL: 'http://app.example.com',
+        AUTH_JWKS_URL: 'http://login.example.com/jwks',
+        CORS_ALLOWED_ORIGINS: 'https://app.example.com,http://other.example',
+      });
+
+      expect(error.problems).toEqual([
+        'APP_PUBLIC_URL: must use https in production',
+        'AUTH_JWKS_URL: must use https in production',
+        'CORS_ALLOWED_ORIGINS: must use https in production',
+      ]);
+    });
+
+    it('allows plain http to this machine only', () => {
+      expect(() =>
+        loadConfig({
+          ...production,
+          APP_PUBLIC_URL: 'http://localhost:3100',
+          API_PUBLIC_URL: 'http://127.0.0.1:3101',
+        }),
+      ).not.toThrow();
+      expect(
+        captureError({ ...production, API_PUBLIC_URL: 'http://localhost.evil' })
+          .problems,
+      ).toEqual(['API_PUBLIC_URL: must use https in production']);
+    });
+  });
 });
 
 describe('loadDatabaseConfig', () => {

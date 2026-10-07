@@ -80,7 +80,8 @@ export interface AppConfig {
     asksPerUser: number;
     uploadsPerUser: number;
   };
-  trustProxy: boolean;
+  /** Trusted reverse-proxy hops for client IPs (0 = none). */
+  trustProxy: number;
   /** Enables GET /metrics for scrapers presenting this bearer token. */
   metricsToken: Secret | undefined;
 }
@@ -143,6 +144,18 @@ function parseEnv<T extends z.ZodType>(
   return result.data;
 }
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/** HTTPS, or plain HTTP to this machine only (local production-mode runs). */
+function isSecureUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || LOOPBACK_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** Validates the environment and returns typed configuration, or throws ConfigValidationError. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const e = parseEnv(envSchema, env);
@@ -155,6 +168,25 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new ConfigValidationError([
       'CHUNK_OVERLAP_TOKENS: must be smaller than CHUNK_SIZE_TOKENS',
     ]);
+  }
+  if (e.NODE_ENV === 'production') {
+    // NFR-SEC-01: browser-facing URLs and token verification use TLS.
+    const insecure = (
+      [
+        ['APP_PUBLIC_URL', e.APP_PUBLIC_URL],
+        ['API_PUBLIC_URL', e.API_PUBLIC_URL],
+        ['AUTH_ISSUER_URL', e.AUTH_ISSUER_URL],
+        ['AUTH_JWKS_URL', e.AUTH_JWKS_URL],
+        ...(e.CORS_ALLOWED_ORIGINS ?? []).map(
+          (origin) => ['CORS_ALLOWED_ORIGINS', origin] as const,
+        ),
+      ] as const
+    )
+      .filter(([, value]) => value !== undefined && !isSecureUrl(value))
+      .map(([name]) => `${name}: must use https in production`);
+    if (insecure.length > 0) {
+      throw new ConfigValidationError([...new Set(insecure)]);
+    }
   }
   return {
     app: {

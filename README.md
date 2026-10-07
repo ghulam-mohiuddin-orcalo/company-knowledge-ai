@@ -7,6 +7,9 @@ Multi-tenant, retrieval-augmented knowledge assistant (MVP).
 - [BA Requirements](docs/requirements/BA_REQUIREMENTS.md)
 - [Technical Design](docs/architecture/TECHNICAL_DESIGN.md)
 - [Implementation Backlog](docs/implementation/IMPLEMENTATION_BACKLOG.md)
+- [Deployment & Operations Runbook](docs/deployment/RUNBOOK.md)
+- [Demo Script](docs/demo/DEMO_SCRIPT.md)
+- [MVP Release Checklist](docs/release/MVP_RELEASE_CHECKLIST.md)
 
 ## Repository layout
 
@@ -113,7 +116,7 @@ The API and worker validate their environment at startup through `packages/confi
 
 ## Security and abuse controls
 
-- Rate limits per API instance (fixed window, `RATE_LIMIT_*`): requests per client IP (health probes exempt), failed authentications per IP (checked before any token is verified), and per-user limits on questions and uploads. Exceeding a limit returns `429 RATE_LIMITED` with `Retry-After`. Set `TRUST_PROXY=true` only behind a trusted reverse proxy.
+- Rate limits per API instance (fixed window, `RATE_LIMIT_*`): requests per client IP (health probes exempt), failed authentications per IP (checked before any token is verified), and per-user limits on questions and uploads. Exceeding a limit returns `429 RATE_LIMITED` with `Retry-After`. `TRUST_PROXY` is the number of trusted reverse proxies in front of the API (0 by default; the deployment sets 1 for its TLS edge); only entries appended by those proxies are used, so clients cannot spoof their IP.
 - Size limits: JSON bodies 64 KB (`413 PAYLOAD_TOO_LARGE`), uploads `UPLOAD_MAX_BYTES` (`413 DOCUMENT_TOO_LARGE`), questions `QUESTION_MAX_CHARS`, model output `AI_MAX_OUTPUT_TOKENS`; provider calls time out after `AI_REQUEST_TIMEOUT_MS`.
 - API responses are never rendered, framed, sniffed or cached (`nosniff`, `Content-Security-Policy: default-src 'none'`, `Cache-Control: no-store`); originals download as attachments.
 - `pnpm test:security` is the security regression gate: cross-tenant IDOR, a role × route access matrix, token tampering and claim escalation, citation tampering, prompt injection, invalid and malicious uploads, safe rendering headers and abuse controls. The browser suite (`pnpm test:e2e`) adds XSS rendering and CSP checks.
@@ -146,6 +149,12 @@ The schema is defined with Drizzle in `packages/database/src/schema.ts`; version
 - Apply migrations with `pnpm db:migrate` (needs only `DATABASE_URL`). Run it explicitly locally, in CI and as a deployment step; applications never migrate or sync the schema on startup, and `drizzle-kit push` is not used.
 - `pnpm test:integration` migrates a fresh temporary database from zero (requires `pnpm infra:up`).
 
+## Deployment
+
+Production images come from the root `Dockerfile` (targets `api`, `worker`, `web`; non-root, read-only, built from the frozen lockfile). `infra/deploy/compose.yaml` runs them behind a Caddy TLS edge (the only public service) against managed PostgreSQL+pgvector, private S3-compatible storage, an OIDC provider and an AI provider, all configured through a host-side environment file (template: `infra/deploy/production.env.example`). Migrations and tenant provisioning are explicit steps (`docker compose run --rm migrate` / `provision`). The [runbook](docs/deployment/RUNBOOK.md) covers setup, secrets, releases, rollback, backups and recovery.
+
+`pnpm deploy:rehearsal up` deploys the same topology locally with real TLS on https://app.localhost and https://api.localhost; `pnpm deploy:rehearsal smoke` and `DEPLOY_LOCAL_CA=1 pnpm test:deploy` verify it (deployment smoke checks and the [demo path](docs/demo/DEMO_SCRIPT.md) in Chromium).
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
@@ -153,8 +162,9 @@ The schema is defined with Drizzle in `packages/database/src/schema.ts`; version
 - **quality**: frozen-lockfile install, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
 - **database**: starts the local stack from `infra/docker/compose.yaml`, runs `pnpm db:migrate` against the empty database, then `pnpm test:integration`, the security regression suite (`pnpm test:security`) and the offline RAG evaluation gate (`pnpm eval`).
 - **e2e**: starts the local stack with the mock OIDC provider and runs the Playwright suite in Chromium (`pnpm test:e2e`) against the built web app, API and worker with a deterministic stand-in AI server (no paid APIs).
+- **deploy-rehearsal**: builds the production images, deploys the rehearsal stack with the runbook's steps, checks that the images refuse to start without valid configuration, and runs the deployment smoke test and the demo path (`pnpm test:deploy`).
 
-Any failing step fails the pull request check. Make all three jobs required status checks in branch protection.
+Any failing step fails the pull request check. Make all four jobs required status checks in branch protection.
 
 ## Workspace scripts
 
@@ -170,6 +180,9 @@ Any failing step fails the pull request check. Make all three jobs required stat
 | `pnpm test:e2e`         | Browser end-to-end suite (needs `pnpm infra:up && pnpm infra:auth`; first run `pnpm --filter @cka/e2e exec playwright install chromium`) |
 | `pnpm eval`             | Offline retrieval/RAG evaluation gate                                                                                                    |
 | `pnpm db:seed:demo`     | Local demo organization and users                                                                                                        |
+| `pnpm db:provision`     | Provision an organization and members (`--organization <name> --admin <sub>:<email> --member <sub>:<email>`)                             |
+| `pnpm deploy:rehearsal` | Production-like local deployment: `up`, `smoke`, `ca`, `logs`, `down`, `destroy` (needs Docker, ports 80/443)                            |
+| `pnpm test:deploy`      | Demo path against a deployment with the mock IdP (`DEPLOY_LOCAL_CA=1` for the rehearsal)                                                 |
 | `pnpm format`           | Format the repository with Prettier                                                                                                      |
 | `pnpm format:check`     | Check formatting without writing                                                                                                         |
 

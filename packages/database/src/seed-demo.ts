@@ -1,6 +1,6 @@
-import { fileURLToPath } from 'node:url';
 import { loadDatabaseConfigOrExit, loadEnvFileIfPresent } from '@cka/config';
 import pg from 'pg';
+import { isMainModule } from './cli.js';
 import { describeDatabaseError } from './client.js';
 
 /** Local demo identities: sign in to the mock IdP (`pnpm infra:auth`) with these usernames. */
@@ -55,7 +55,7 @@ export async function seedDemo(databaseUrl: string): Promise<void> {
 }
 
 // Local development only: `pnpm db:seed:demo`.
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   if (process.env.NODE_ENV === 'production') {
     console.error('Refusing to seed demo data with NODE_ENV=production');
     process.exit(1);

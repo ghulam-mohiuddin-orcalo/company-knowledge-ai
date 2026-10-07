@@ -106,3 +106,50 @@ jobs:
       # E7 product flows and E8-T04 browser security checks (XSS, CSP, tampering).
       - name: End-to-end suite
         run: pnpm test:e2e
+
+  deploy-rehearsal:
+    name: Production images and deployment rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # E9-T01/T02: builds the web/API/worker production images, then deploys the
+      # hosted topology (TLS edge, private PostgreSQL/storage, mock IdP, AI stand-in)
+      # with the runbook's explicit migrate and provision steps.
+      - name: Build images and deploy the rehearsal stack
+        run: pnpm deploy:rehearsal up
+
+      # Images refuse to start without valid production configuration.
+      - name: Production configuration is validated at startup
+        run: |
+          if docker run --rm -e NODE_ENV=production cka-api:rehearsal; then
+            echo 'API started without configuration' >&2; exit 1
+          fi
+          if docker run --rm -e NODE_ENV=production cka-worker:rehearsal; then
+            echo 'Worker started without configuration' >&2; exit 1
+          fi
+
+      - name: Deployment smoke test (TLS, readiness, headers, exposure)
+        run: pnpm deploy:rehearsal smoke
+
+      - name: Install Chromium
+        run: pnpm --filter @cka/e2e exec playwright install --with-deps chromium
+
+      # E9-T04: the demo path in a browser against the deployed stack.
+      - name: Demo path against the deployment
+        run: DEPLOY_LOCAL_CA=1 pnpm test:deploy
+
+      - name: Service logs on failure
+        if: failure()
+        run: pnpm deploy:rehearsal logs --no-color --tail 200 || true

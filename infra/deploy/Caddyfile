@@ -1,0 +1,8 @@
+# TLS edge for hosted environments: automatic HTTPS (Let's Encrypt/ZeroSSL)
+# for both domains, HTTP redirected to HTTPS. DNS for APP_DOMAIN and
+# API_DOMAIN must point at this host, with ports 80 and 443 reachable.
+{
+	email {$ACME_EMAIL}
+}
+
+import sites.caddy

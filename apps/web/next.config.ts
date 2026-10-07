@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -29,6 +30,16 @@ const contentSecurityPolicy = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Container images (E9-T01) ship the self-contained server; the monorepo root
+  // is the tracing root so workspace packages are included.
+  ...(process.env.NEXT_STANDALONE === 'true'
+    ? {
+        output: 'standalone' as const,
+        outputFileTracingRoot: fileURLToPath(
+          new URL('../../', import.meta.url),
+        ),
+      }
+    : {}),
   async headers() {
     return [
       {

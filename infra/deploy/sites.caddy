@@ -1,0 +1,21 @@
+# Public sites. Caddy replaces any client-supplied X-Forwarded-For with the
+# real client IP, which the API trusts as exactly one hop (TRUST_PROXY=1).
+(hardening) {
+	header Strict-Transport-Security "max-age=31536000"
+	header -Server
+}
+
+{$APP_DOMAIN} {
+	import hardening
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+{$API_DOMAIN} {
+	import hardening
+	# Uploads are limited by the API (UPLOAD_MAX_BYTES); cap bodies here too.
+	request_body {
+		max_size 30MB
+	}
+	reverse_proxy api:3001
+}

@@ -6,7 +6,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "node support/prepare-database.mjs && playwright test"
+    "test:e2e": "node support/prepare-database.mjs && playwright test",
+    "test:deploy": "playwright test --config playwright.deploy.config.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",
