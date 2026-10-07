@@ -6,3 +6,5 @@ pnpm-lock.yaml
 docs/
 pnpm-workspace.yaml
 packages/database/migrations
+test-results
+playwright-report

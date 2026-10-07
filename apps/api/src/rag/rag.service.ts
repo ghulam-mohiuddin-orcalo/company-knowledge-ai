@@ -21,6 +21,7 @@ import {
   CitedEvidenceUnavailableError,
   type NewCitation,
 } from '../citations/citations.repository.js';
+import { ApiMetrics } from '../metrics/api-metrics.js';
 import { buildRagPrompt, parseAnswer } from './prompt-builder.js';
 
 export const GENERATION_PROVIDER = Symbol('GENERATION_PROVIDER');
@@ -53,6 +54,7 @@ export class RagService {
     @Inject(GENERATION_PROVIDER)
     private readonly generation: GenerationProvider,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly metrics: ApiMetrics,
   ) {}
 
   /**
@@ -94,10 +96,21 @@ export class RagService {
   ): Promise<MessageRecord> {
     const started = performance.now();
     const context = `conversation ${question.conversationId} message ${question.id} org ${scope.organizationId}`;
+    // Which provider call is in flight, for error metrics.
+    let operation: 'embedding' | 'generation' = 'embedding';
+    let generationStarted = 0;
     try {
       const hits = await this.retrieval.retrieve(scope, question.content);
+      this.metrics.retrievalDuration.observe(
+        {},
+        (performance.now() - started) / 1000,
+      );
       const decision = this.policy.evaluate(question.content, hits);
       if (!decision.sufficient) {
+        this.metrics.answers.inc({
+          outcome: 'NO_ANSWER',
+          reason: decision.reason,
+        });
         this.logger.log(
           `No answer (${decision.reason}): ${context} hits ${hits.length}`,
         );
@@ -109,11 +122,18 @@ export class RagService {
       }
 
       const prompt = buildRagPrompt(question.content, decision.selectedHits);
+      operation = 'generation';
+      generationStarted = performance.now();
       const result = await this.generation.generate({
         system: prompt.system,
         user: prompt.user,
         maxOutputTokens: this.config.ai.maxOutputTokens,
       });
+      this.metrics.generationDuration.observe(
+        { result: 'success' },
+        (performance.now() - generationStarted) / 1000,
+      );
+      this.recordTokens(result.model, result.usage);
       const parsed = parseAnswer(result.text, prompt.sources);
       this.logger.log(
         `${parsed.kind === 'answer' ? 'Answered' : `No answer (${parsed.reason})`}: ${context} ` +
@@ -125,6 +145,10 @@ export class RagService {
         usage: result.usage,
       };
       if (parsed.kind !== 'answer') {
+        this.metrics.answers.inc({
+          outcome: 'NO_ANSWER',
+          reason: parsed.reason,
+        });
         return this.save(scope, question, {
           ...generated,
           content: NO_ANSWER_MESSAGE,
@@ -134,16 +158,22 @@ export class RagService {
       // Citations come only from the hits sent in this prompt (BR-04).
       const mapped = mapCitations(parsed.text, prompt.sources);
       try {
-        return await this.save(scope, question, {
+        const saved = await this.save(scope, question, {
           ...generated,
           content: mapped.text,
           outcome: 'ANSWERED',
           citations: mapped.citations,
         });
+        this.metrics.answers.inc({ outcome: 'ANSWERED', reason: 'NONE' });
+        return saved;
       } catch (error) {
         if (!(error instanceof CitedEvidenceUnavailableError)) throw error;
         // A cited document was deleted while answering: never cite missing evidence.
         this.logger.log(`No answer (EVIDENCE_REMOVED): ${context}`);
+        this.metrics.answers.inc({
+          outcome: 'NO_ANSWER',
+          reason: 'EVIDENCE_REMOVED',
+        });
         return this.save(scope, question, {
           ...generated,
           content: NO_ANSWER_MESSAGE,
@@ -153,6 +183,13 @@ export class RagService {
     } catch (error) {
       if (error instanceof AiProviderError) {
         this.logger.warn(`AI provider failure (${error.code}): ${context}`);
+        this.metrics.providerErrors.inc({ operation, code: error.code });
+        if (operation === 'generation') {
+          this.metrics.generationDuration.observe(
+            { result: 'error' },
+            (performance.now() - generationStarted) / 1000,
+          );
+        }
         throw new ApiError(
           HttpStatus.SERVICE_UNAVAILABLE,
           'AI_PROVIDER_UNAVAILABLE',
@@ -160,6 +197,24 @@ export class RagService {
         );
       }
       throw error;
+    }
+  }
+
+  private recordTokens(
+    model: string,
+    usage: { inputTokens: number | null; outputTokens: number | null },
+  ): void {
+    if (usage.inputTokens) {
+      this.metrics.providerTokens.inc(
+        { model, kind: 'input' },
+        usage.inputTokens,
+      );
+    }
+    if (usage.outputTokens) {
+      this.metrics.providerTokens.inc(
+        { model, kind: 'output' },
+        usage.outputTokens,
+      );
     }
   }
 

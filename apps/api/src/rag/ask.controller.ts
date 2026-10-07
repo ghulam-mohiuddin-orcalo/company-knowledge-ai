@@ -11,24 +11,19 @@ import {
 } from '@nestjs/common';
 import type { AppConfig } from '@cka/config';
 import { Authorize } from '../authorization/authorize.decorator.js';
+import { RateLimit } from '../rate-limit/rate-limit.decorators.js';
 import { CitationsRepository } from '../citations/citations.repository.js';
 import { ApiError } from '../common/api-error.js';
 import { readJsonObject } from '../common/request-body.js';
 import { APP_CONFIG } from '../config/config.module.js';
-import {
-  type MessageResponse,
-  toMessageResponse,
-} from '../conversations/conversation-responses.js';
+import { toMessageResponse } from '../conversations/conversation-responses.js';
 import { CurrentPrincipal, type Principal } from '../tenancy/principal.js';
 import { TenantScope } from '../tenancy/tenant-scope.js';
 import { RagService } from './rag.service.js';
+import type { AskResponse } from '@cka/contracts';
+export type { AskResponse };
 
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{1,100}$/;
-
-export interface AskResponse {
-  question: MessageResponse;
-  answer: MessageResponse;
-}
 
 const invalid = (message: string) =>
   new ApiError(HttpStatus.BAD_REQUEST, 'VALIDATION_FAILED', message);
@@ -47,6 +42,7 @@ export class AskController {
 
   @Post(':conversationId/messages')
   @Authorize('MEMBER')
+  @RateLimit('ask')
   @HttpCode(HttpStatus.CREATED)
   async ask(
     @CurrentPrincipal() principal: Principal,

@@ -24,6 +24,7 @@ export class MembershipAlreadyExistsError extends Error {
 export interface UserMembership {
   membershipId: string;
   organizationId: string;
+  organizationName: string;
   organizationStatus: (typeof organizations.$inferSelect)['status'];
   role: MembershipRole;
 }
@@ -109,6 +110,7 @@ export class MembershipsRepository {
       .select({
         membershipId: memberships.id,
         organizationId: memberships.organizationId,
+        organizationName: organizations.name,
         organizationStatus: organizations.status,
         role: memberships.role,
       })

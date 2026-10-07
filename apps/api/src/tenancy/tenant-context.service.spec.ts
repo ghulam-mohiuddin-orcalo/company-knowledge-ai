@@ -21,6 +21,7 @@ function membership(
   return {
     membershipId: `m-${organizationId.slice(9, 13)}`,
     organizationId,
+    organizationName: 'Org',
     organizationStatus: 'ACTIVE',
     role: 'MEMBER',
     ...overrides,

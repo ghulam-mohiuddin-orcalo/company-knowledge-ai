@@ -1,32 +1,11 @@
-import {
-  type CitationResponse,
-  toCitationResponse,
-} from '../citations/citation-responses.js';
+import { toCitationResponse } from '../citations/citation-responses.js';
 import type { CitationView } from '../citations/citations.repository.js';
 import type {
   ConversationRecord,
-  MessageOutcome,
   MessageRecord,
 } from './conversations.repository.js';
-
-export interface ConversationResponse {
-  id: string;
-  title: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface MessageResponse {
-  id: string;
-  role: 'USER' | 'ASSISTANT';
-  content: string;
-  /** Assistant messages only: a grounded answer or the explicit no-answer. */
-  outcome: MessageOutcome | null;
-  replyTo: string | null;
-  /** Server-backed citations, in ordinal order (assistant answers only). */
-  citations: CitationResponse[];
-  createdAt: string;
-}
+import type { ConversationResponse, MessageResponse } from '@cka/contracts';
+export type { ConversationResponse, MessageResponse };
 
 export function toConversationResponse(
   conversation: ConversationRecord,

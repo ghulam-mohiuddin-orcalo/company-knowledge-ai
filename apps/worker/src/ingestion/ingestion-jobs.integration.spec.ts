@@ -1,4 +1,5 @@
 import {
+  auditEvents,
   createDatabase,
   createDatabasePool,
   type Database,
@@ -243,6 +244,49 @@ describe('database-backed ingestion claim/retry (E3-T06)', () => {
     expect(await documentRow(seeded.documentId)).toMatchObject({
       status: 'FAILED',
       errorCode: 'INGESTION_ATTEMPTS_EXHAUSTED',
+    });
+  });
+
+  it('audits final ingestion outcomes, not scheduled retries (E8-T02)', async () => {
+    const audited = async (documentId: string) =>
+      (
+        await db
+          .select()
+          .from(auditEvents)
+          .where(eq(auditEvents.targetId, documentId))
+      ).map((e) => [e.action, e.metadata]);
+
+    const ok = await onlyJob();
+    const okClaim = (await jobs.claimNext())!;
+    await jobs.complete(okClaim, [chunk(0), chunk(1)], 'm');
+    expect(await audited(ok.documentId)).toEqual([
+      ['INGESTION_SUCCEEDED', { jobId: ok.jobId, attempt: 1, chunkCount: 2 }],
+    ]);
+
+    const retried = await onlyJob();
+    const retryClaim = (await jobs.claimNext())!;
+    await jobs.fail(retryClaim, {
+      code: 'PROVIDER_UNAVAILABLE',
+      retryable: true,
+    });
+    expect(await audited(retried.documentId)).toEqual([]);
+
+    const failed = await onlyJob();
+    const failClaim = (await jobs.claimNext())!;
+    await jobs.fail(failClaim, { code: 'EXTRACTION_EMPTY', retryable: false });
+    const [event] = await db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.targetId, failed.documentId));
+    expect(event).toMatchObject({
+      action: 'INGESTION_FAILED',
+      organizationId: tenant.organizationId,
+      actorUserId: null,
+      metadata: {
+        jobId: failed.jobId,
+        attempt: 1,
+        errorCode: 'EXTRACTION_EMPTY',
+      },
     });
   });
 

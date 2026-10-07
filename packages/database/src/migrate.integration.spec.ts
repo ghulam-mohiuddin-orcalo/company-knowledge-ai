@@ -51,6 +51,7 @@ describe('database migrations', () => {
       );
       expect(tables.rows.map((row) => row.table_name)).toEqual([
         'answer_citations',
+        'audit_events',
         'conversations',
         'document_chunks',
         'documents',

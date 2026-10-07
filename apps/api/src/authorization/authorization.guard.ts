@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { enrichLogContext } from '@cka/observability';
 import { IS_PUBLIC } from '../auth/public.decorator.js';
 import { ApiError } from '../common/api-error.js';
 import { readOrganizationHeader } from '../tenancy/organization-header.js';
@@ -55,6 +56,7 @@ export class AuthorizationGuard implements CanActivate {
           throw ApiError.forbidden();
         }
         request.principal = principal;
+        enrichLogContext({ organizationId: principal.organizationId });
         return true;
       }
       default:

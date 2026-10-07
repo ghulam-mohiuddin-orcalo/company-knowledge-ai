@@ -1,6 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { AppModule } from '../app.module.js';
+import { configureApp } from '../configure-app.js';
+import { JsonLogger } from '@cka/observability';
 import { createTestConfig } from './test-config.js';
 import type { TestIdentityProvider } from './test-identity-provider.js';
 
@@ -15,8 +17,24 @@ export interface TestApi {
       method?: string;
       body?: FormData | string;
     },
-  ): Promise<{ status: number; body: unknown; text: string }>;
+  ): Promise<TestResponse>;
   close(): Promise<void>;
+}
+
+export interface TestResponse {
+  status: number;
+  /**
+   * Parsed JSON. For error envelopes, the per-request `requestId` is moved to
+   * `envelopeRequestId` so envelopes can be compared (e.g. foreign vs unknown IDs).
+   */
+  body: unknown;
+  /** Raw response text (unmodified), for leak checks. */
+  text: string;
+  /** X-Request-Id response header. */
+  requestId: string | null;
+  headers: Headers;
+  /** requestId found in the error envelope, if any. */
+  envelopeRequestId?: string;
 }
 
 /** Boots the full API (all guards and filters) against a test database and identity provider. */
@@ -25,6 +43,8 @@ export async function startTestApi(
   idp: TestIdentityProvider,
   env: NodeJS.ProcessEnv = {},
   override: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b,
+  /** Captures structured log output (silent by default). */
+  logger: JsonLogger = new JsonLogger('error', () => undefined),
 ): Promise<TestApi> {
   const moduleRef = await override(
     Test.createTestingModule({
@@ -35,7 +55,13 @@ export async function startTestApi(
       ],
     }),
   ).compile();
-  const app = moduleRef.createNestApplication({ logger: false });
+  const app = moduleRef.createNestApplication({ logger });
+  configureApp(
+    app,
+    createTestConfig({ DATABASE_URL: databaseUrl, ...idp.env(), ...env })
+      .config,
+    logger,
+  );
   await app.listen(0, '127.0.0.1');
   const baseUrl = await app.getUrl();
 
@@ -59,7 +85,20 @@ export async function startTestApi(
       } catch {
         body = text;
       }
-      return { status: response.status, body, text };
+      let envelopeRequestId: string | undefined;
+      const error = (body as { error?: { requestId?: string } } | null)?.error;
+      if (error && typeof error === 'object' && 'requestId' in error) {
+        envelopeRequestId = error.requestId;
+        delete error.requestId;
+      }
+      return {
+        status: response.status,
+        body,
+        text,
+        requestId: response.headers.get('x-request-id'),
+        headers: response.headers,
+        envelopeRequestId,
+      };
     },
     close: () => app.close(),
   };

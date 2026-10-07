@@ -73,6 +73,16 @@ export interface AppConfig {
   chat: {
     questionMaxChars: number;
   };
+  rateLimits: {
+    windowMs: number;
+    requestsPerIp: number;
+    authFailuresPerIp: number;
+    asksPerUser: number;
+    uploadsPerUser: number;
+  };
+  trustProxy: boolean;
+  /** Enables GET /metrics for scrapers presenting this bearer token. */
+  metricsToken: Secret | undefined;
 }
 
 /** Thrown when configuration is missing or invalid. The message never contains configuration values. */
@@ -214,6 +224,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     chat: {
       questionMaxChars: e.QUESTION_MAX_CHARS,
     },
+    rateLimits: {
+      windowMs: e.RATE_LIMIT_WINDOW_MS,
+      requestsPerIp: e.RATE_LIMIT_REQUESTS_PER_IP,
+      authFailuresPerIp: e.RATE_LIMIT_AUTH_FAILURES_PER_IP,
+      asksPerUser: e.RATE_LIMIT_ASKS_PER_USER,
+      uploadsPerUser: e.RATE_LIMIT_UPLOADS_PER_USER,
+    },
+    trustProxy: e.TRUST_PROXY,
+    metricsToken: e.METRICS_TOKEN,
   };
 }
 

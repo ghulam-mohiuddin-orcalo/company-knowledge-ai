@@ -23,6 +23,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node dist/migrate.js",
+    "db:seed:demo": "node dist/seed-demo.js",
+    "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {

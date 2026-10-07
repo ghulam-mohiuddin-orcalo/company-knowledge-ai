@@ -6,6 +6,7 @@ import {
   documentChunks,
   documents,
   ingestionJobs,
+  recordAuditEvent,
 } from '@cka/database';
 import { and, asc, eq, inArray, lt, lte, or, sql } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
@@ -186,6 +187,18 @@ export class IngestionJobsRepository {
         );
       }
       await this.setDocument(tx, job, 'READY', null);
+      await recordAuditEvent(tx, {
+        action: 'INGESTION_SUCCEEDED',
+        organizationId: job.organizationId,
+        actorUserId: null,
+        targetType: 'document',
+        targetId: job.documentId,
+        metadata: {
+          jobId: job.jobId,
+          attempt: job.attempt,
+          chunkCount: chunks.length,
+        },
+      });
       await this.setJob(tx, job.jobId, {
         status: 'SUCCEEDED',
         completedAt: new Date(),
@@ -196,6 +209,29 @@ export class IngestionJobsRepository {
       });
       return 'succeeded';
     });
+  }
+
+  /**
+   * Extends the lease of a job its owner is still working on, so a long job is
+   * not reclaimed and processed twice (E8-T06). False once the claim is lost
+   * (lease expired and reclaimed, or the job was cancelled).
+   */
+  async renewLease(job: ClaimedJob): Promise<boolean> {
+    const renewed = await this.db
+      .update(ingestionJobs)
+      .set({
+        leaseExpiresAt: sql`now() + ${this.config.jobs.leaseMs} * interval '1 millisecond'`,
+      })
+      .where(
+        and(
+          eq(ingestionJobs.organizationId, job.organizationId),
+          eq(ingestionJobs.id, job.jobId),
+          eq(ingestionJobs.status, 'PROCESSING'),
+          eq(ingestionJobs.claimToken, job.claimToken),
+        ),
+      )
+      .returning({ id: ingestionJobs.id });
+    return renewed.length > 0;
   }
 
   /** Requeues with backoff (retryable, attempts left) or fails the job and document. */
@@ -225,6 +261,18 @@ export class IngestionJobsRepository {
         errorCode: failure.code,
       });
       await this.setDocument(tx, job, 'FAILED', failure.code);
+      await recordAuditEvent(tx, {
+        action: 'INGESTION_FAILED',
+        organizationId: job.organizationId,
+        actorUserId: null,
+        targetType: 'document',
+        targetId: job.documentId,
+        metadata: {
+          jobId: job.jobId,
+          attempt: job.attempt,
+          errorCode: failure.code,
+        },
+      });
       return 'failed';
     });
   }

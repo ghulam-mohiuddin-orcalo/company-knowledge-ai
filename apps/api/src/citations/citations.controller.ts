@@ -18,17 +18,8 @@ import {
   type CitationSource,
   CitationsRepository,
 } from './citations.repository.js';
-
-export interface CitationSourceResponse {
-  citationId: string;
-  ordinal: number;
-  document: { id: string; name: string; mimeType: string };
-  locator: { page: number | null; section: string | null };
-  /** The full cited passage (plain text; render as text, never as HTML). */
-  text: string;
-  /** Authenticated API path that streams the original document. */
-  originalUrl: string;
-}
+import type { CitationSourceResponse } from '@cka/contracts';
+export type { CitationSourceResponse };
 
 const unavailable = () =>
   new ApiError(

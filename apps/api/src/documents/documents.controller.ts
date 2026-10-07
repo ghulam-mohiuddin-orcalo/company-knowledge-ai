@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Authorize } from '../authorization/authorize.decorator.js';
+import { RateLimit } from '../rate-limit/rate-limit.decorators.js';
 import { ApiError } from '../common/api-error.js';
 import { CurrentPrincipal, type Principal } from '../tenancy/principal.js';
 import { TenantScope } from '../tenancy/tenant-scope.js';
@@ -22,18 +23,8 @@ import {
   DocumentsService,
   type UploadedFile as UploadedDocumentFile,
 } from './documents.service.js';
-
-export interface DocumentResponse {
-  id: string;
-  filename: string;
-  mimeType: string;
-  sizeBytes: number;
-  status: DocumentView['status'];
-  errorCode: string | null;
-  uploadedBy: { id: string; name: string };
-  createdAt: string;
-  updatedAt: string;
-}
+import type { DocumentListResponse, DocumentResponse } from '@cka/contracts';
+export type { DocumentListResponse, DocumentResponse };
 
 export function toDocumentResponse(document: DocumentView): DocumentResponse {
   return {
@@ -47,11 +38,6 @@ export function toDocumentResponse(document: DocumentView): DocumentResponse {
     createdAt: document.createdAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),
   };
-}
-
-export interface DocumentListResponse {
-  items: DocumentResponse[];
-  nextCursor: string | null;
 }
 
 @Controller('v1/documents')
@@ -91,6 +77,7 @@ export class DocumentsController {
   /** Multipart upload (field `file`). Authorization runs before the body is read. */
   @Post()
   @Authorize('ORG_ADMIN')
+  @RateLimit('upload')
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('file'))
   async upload(
@@ -123,6 +110,7 @@ export class DocumentsController {
     await this.documents.delete(
       TenantScope.fromPrincipal(principal),
       documentId,
+      principal.userId,
     );
   }
 }

@@ -19,10 +19,11 @@ Precedence: BA → TDD → backlog. Do not redesign or reinterpret approved requ
 - Avoid unnecessary architecture or infrastructure (no extra queues, vector DBs, Kubernetes, etc. unless the docs require them).
 - Inspect existing code and conventions before changing anything; match them.
 - Never share ORM entities or backend internals through `packages/contracts`.
-- API routes: every non-public route declares `@Authorize('AUTHENTICATED' | 'MEMBER' | 'ORG_ADMIN' | 'PLATFORM_ADMIN')`; routes without one are denied. Only health endpoints are `@Public()`.
+- API routes: every non-public route declares `@Authorize('AUTHENTICATED' | 'MEMBER' | 'ORG_ADMIN' | 'PLATFORM_ADMIN')`; routes without one are denied. Only health endpoints and the token-gated `/metrics` scrape are `@Public()`; a new or changed route must be added to the reviewed access matrix in `security-regression.security.spec.ts`.
 - Tenant-owned repository methods take `scope: TenantScope` first (from `TenantScope.fromPrincipal`) and filter `organization_id` in SQL; no `findById(id)` on tenant resources (lint-enforced). Foreign IDs must behave exactly like unknown IDs.
 - Every new tenant-owned aggregate gets cases in the cross-tenant security suite (`pnpm test:security`).
-- Never log or print secrets or confidential document content.
+- Never log or print secrets or confidential document content. Use the structured logger (`@cka/observability`); metric labels must never carry tenant, user or document IDs or text.
+- Costly operations get a per-user `@RateLimit(...)`; record security-relevant actions with `recordAuditEvent` in the same transaction.
 - Never commit or push unless explicitly requested.
 
 ## Architecture boundary (permanent)
@@ -42,9 +43,11 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm test:integration   # needs `pnpm infra:up` and DATABASE_URL
-pnpm test:security      # cross-tenant gate; same requirements
+pnpm test:security      # security regression gate; same requirements
 pnpm eval               # RAG evaluation regression gate; same requirements
 pnpm build
+pnpm test:e2e           # browser suite; also needs `pnpm infra:auth`
+pnpm format:check
 ```
 
 Report files changed, check results, and any deviation or blocker.

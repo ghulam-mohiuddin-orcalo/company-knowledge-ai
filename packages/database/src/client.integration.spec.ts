@@ -23,4 +23,29 @@ describe('createDatabasePool', () => {
       await admin.end();
     }
   });
+
+  it('survives the server dropping a checked-out connection between queries (E8-T06)', async () => {
+    const pool = createDatabasePool(databaseUrl);
+    const admin = createDatabasePool(databaseUrl);
+    const uncaught = vi.fn();
+    process.on('uncaughtException', uncaught);
+    try {
+      // Held between statements, as a transaction does.
+      const client = await pool.connect();
+      const { rows } = await client.query<{ pid: number }>(
+        'SELECT pg_backend_pid() AS pid',
+      );
+      await admin.query('SELECT pg_terminate_backend($1)', [rows[0]!.pid]);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      await expect(client.query('SELECT 1')).rejects.toThrow();
+      client.release();
+      expect(uncaught).not.toHaveBeenCalled();
+      await expect(pingDatabase(pool, 2000)).resolves.toBeUndefined();
+    } finally {
+      process.off('uncaughtException', uncaught);
+      await pool.end();
+      await admin.end();
+    }
+  });
 });

@@ -1,15 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { Authorize } from '../authorization/authorize.decorator.js';
 import { ApiError } from '../common/api-error.js';
-import type { MembershipRole } from '../tenancy/memberships.repository.js';
 import { CurrentPrincipal, type Principal } from '../tenancy/principal.js';
 import { OrganizationsRepository } from './organizations.repository.js';
-
-export interface CurrentOrganizationResponse {
-  id: string;
-  name: string;
-  role: MembershipRole;
-}
+import type { CurrentOrganizationResponse } from '@cka/contracts';
+export type { CurrentOrganizationResponse };
 
 /** The caller's active organization (tenant derived from the Principal only). */
 @Controller('v1/organization')

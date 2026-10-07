@@ -111,8 +111,14 @@ export class DocumentsService {
    * Marks the document DELETING (immediately non-retrievable); the worker removes
    * chunks and the stored object asynchronously. Repeating the call is a no-op.
    */
-  async delete(scope: TenantScope, documentId: string): Promise<void> {
-    if (await this.documents.markDeletingById(scope, documentId)) return;
+  async delete(
+    scope: TenantScope,
+    documentId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    if (await this.documents.markDeletingById(scope, documentId, actorUserId)) {
+      return;
+    }
     if (!(await this.documents.existsById(scope, documentId))) {
       throw ApiError.notFound();
     }

@@ -13,6 +13,12 @@ import { DocumentsModule } from './documents/documents.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MeModule } from './me/me.module.js';
 import { RagModule } from './rag/rag.module.js';
+import {
+  IpRateLimitGuard,
+  OperationRateLimitGuard,
+} from './rate-limit/rate-limit.guards.js';
+import { RateLimitModule } from './rate-limit/rate-limit.module.js';
+import { MetricsModule } from './metrics/metrics.module.js';
 import { RetrievalModule } from './retrieval/retrieval.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
@@ -27,6 +33,8 @@ export class AppModule {
       imports: [
         ConfigModule.forRoot(apiConfig),
         DatabaseModule,
+        RateLimitModule,
+        MetricsModule,
         StorageModule,
         AuthModule,
         OrganizationsModule,
@@ -42,9 +50,12 @@ export class AppModule {
       ],
       providers: [
         { provide: APP_FILTER, useClass: ErrorEnvelopeFilter },
-        // Global guards run in this order: authenticate, then authorize (incl. tenant).
+        // Global guards run in this order: IP limit, authenticate, authorize
+        // (incl. tenant), then per-user operation limits.
+        { provide: APP_GUARD, useExisting: IpRateLimitGuard },
         { provide: APP_GUARD, useExisting: AuthenticationGuard },
         { provide: APP_GUARD, useExisting: AuthorizationGuard },
+        { provide: APP_GUARD, useExisting: OperationRateLimitGuard },
       ],
     };
   }

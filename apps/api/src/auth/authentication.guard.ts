@@ -7,7 +7,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { enrichLogContext } from '@cka/observability';
 import { ApiError } from '../common/api-error.js';
+import { RateLimitService } from '../rate-limit/rate-limit.service.js';
 import { UsersService } from '../users/users.service.js';
 import {
   IDENTITY_VERIFIER,
@@ -33,6 +35,7 @@ export class AuthenticationGuard implements CanActivate {
     private readonly reflector: Reflector,
     @Inject(IDENTITY_VERIFIER) private readonly verifier: IdentityVerifier,
     private readonly users: UsersService,
+    private readonly limits: RateLimitService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,14 +46,22 @@ export class AuthenticationGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<ApiRequest>();
+    const ip = request.ip ?? 'unknown';
+    // Brute-force guard: an IP with too many failed attempts is throttled
+    // before any token is examined (E8-T03).
+    this.limits.assertAuthAllowed(ip);
     const token = BEARER.exec(request.headers.authorization ?? '')?.[1];
-    if (!token) throw ApiError.unauthenticated();
+    if (!token) {
+      this.limits.recordAuthFailure(ip);
+      throw ApiError.unauthenticated();
+    }
 
     let identity;
     try {
       identity = await this.verifier.verify(token);
     } catch (error) {
       if (error instanceof InvalidCredentialError) {
+        this.limits.recordAuthFailure(ip);
         this.logger.debug(`Rejected access token: ${error.message}`);
         throw ApiError.unauthenticated();
       }
@@ -66,6 +77,7 @@ export class AuthenticationGuard implements CanActivate {
     }
 
     request.authUser = await this.users.resolveVerifiedIdentity(identity);
+    enrichLogContext({ userId: request.authUser.userId });
     return true;
   }
 }

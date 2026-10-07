@@ -126,6 +126,21 @@ export const envSchema = z.object({
 
   // Chat
   QUESTION_MAX_CHARS: positiveInt.default(2000),
+
+  // Abuse controls (E8-T03): fixed windows, per API instance.
+  RATE_LIMIT_WINDOW_MS: positiveInt.default(60_000),
+  RATE_LIMIT_REQUESTS_PER_IP: positiveInt.default(600),
+  RATE_LIMIT_AUTH_FAILURES_PER_IP: positiveInt.default(20),
+  RATE_LIMIT_ASKS_PER_USER: positiveInt.default(20),
+  RATE_LIMIT_UPLOADS_PER_USER: positiveInt.default(30),
+  // Behind a load balancer/proxy, trust X-Forwarded-For for client IPs.
+  TRUST_PROXY: booleanFlag.default(false),
+  // Bearer token for GET /metrics (E8-T05). Unset: the endpoint is disabled.
+  METRICS_TOKEN: z
+    .string()
+    .min(16, 'must be at least 16 characters')
+    .transform((value) => new Secret(value))
+    .optional(),
 });
 
 export type Env = z.output<typeof envSchema>;

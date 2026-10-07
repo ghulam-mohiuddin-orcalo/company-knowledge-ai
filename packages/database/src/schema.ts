@@ -400,3 +400,39 @@ export const answerCitations = pgTable(
     check('answer_citations_ordinal_positive', sql`${table.ordinal} >= 1`),
   ],
 );
+
+/**
+ * Security and content-management audit trail (E8-T02, BA FR-AUD-01).
+ * Tenant-scoped where applicable; metadata holds identifiers, codes and counts
+ * only (never document text, filenames, prompts or secrets).
+ */
+export const auditEvents = pgTable(
+  'audit_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id, {
+      onDelete: 'restrict',
+    }),
+    actorUserId: uuid('actor_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    action: text('action').notNull(),
+    targetType: text('target_type').notNull(),
+    targetId: uuid('target_id'),
+    metadata: jsonb('metadata')
+      .$type<Record<string, string | number | boolean | null>>()
+      .notNull()
+      .default({}),
+    // Correlation with structured logs (X-Request-Id).
+    requestId: text('request_id'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('audit_events_organization_id_created_at_idx').on(
+      table.organizationId,
+      table.createdAt.desc(),
+    ),
+  ],
+);

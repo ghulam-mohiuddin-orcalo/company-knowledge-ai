@@ -1,18 +1,8 @@
 import type { CitationView } from './citations.repository.js';
+import type { CitationResponse } from '@cka/contracts';
+export type { CitationResponse };
 
 export const EXCERPT_MAX_LENGTH = 280;
-
-export interface CitationResponse {
-  id: string;
-  ordinal: number;
-  documentId: string;
-  documentName: string;
-  locator: { page: number | null; section: string | null };
-  /** Short plain-text excerpt of the cited evidence; null when unavailable. */
-  excerpt: string | null;
-  /** False once the cited document is deleted or no longer indexed. */
-  available: boolean;
-}
 
 /** A bounded plain-text excerpt, cut at a word boundary. */
 export function toExcerpt(content: string): string {

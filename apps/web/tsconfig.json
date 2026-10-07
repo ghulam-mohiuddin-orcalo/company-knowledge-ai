@@ -1,6 +1,7 @@
 {
   "extends": "@cka/tsconfig/nextjs.json",
   "compilerOptions": {
+    "types": ["vitest/globals"],
     "paths": {
       "@/*": ["./*"]
     }

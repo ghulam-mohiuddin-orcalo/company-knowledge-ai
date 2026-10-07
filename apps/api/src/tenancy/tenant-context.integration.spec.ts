@@ -124,6 +124,17 @@ describe('request principal and active tenant (E1-T03)', () => {
     });
   });
 
+  it('lists the caller’s own organizations for selection', async () => {
+    const response = await me('multi');
+
+    expect(
+      (response.body as { organizations: unknown[] }).organizations,
+    ).toEqual([
+      { id: orgA.id, name: 'Org A', role: 'MEMBER', status: 'ACTIVE' },
+      { id: orgB.id, name: 'Org B', role: 'ORG_ADMIN', status: 'ACTIVE' },
+    ]);
+  });
+
   it('lets a multi-organization user select among their own memberships', async () => {
     const unselected = await me('multi');
     const inA = await me('multi', { 'x-organization-id': orgA.id });

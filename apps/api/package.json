@@ -17,7 +17,9 @@
   "dependencies": {
     "@cka/ai": "workspace:*",
     "@cka/config": "workspace:*",
+    "@cka/contracts": "workspace:*",
     "@cka/database": "workspace:*",
+    "@cka/observability": "workspace:*",
     "@cka/storage": "workspace:*",
     "@nestjs/common": "^12.1.2",
     "@nestjs/core": "^12.1.2",

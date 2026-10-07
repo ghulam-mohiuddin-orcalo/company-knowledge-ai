@@ -1,21 +1,12 @@
 import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import { Authorize } from '../authorization/authorize.decorator.js';
 import { ApiError } from '../common/api-error.js';
-import type {
-  MembershipRole,
-  OrganizationMember,
-} from './memberships.repository.js';
+import type { OrganizationMember } from './memberships.repository.js';
 import { MembershipsService } from './memberships.service.js';
 import { CurrentPrincipal, type Principal } from './principal.js';
 import { TenantScope } from './tenant-scope.js';
-
-export interface OrganizationMemberResponse {
-  membershipId: string;
-  userId: string;
-  email: string;
-  displayName: string | null;
-  role: MembershipRole;
-}
+import type { OrganizationMemberResponse } from '@cka/contracts';
+export type { OrganizationMemberResponse };
 
 /** Organization member management (ORG_ADMIN, TDD §8.2); read-only in E1. */
 @Controller('v1/organization/members')

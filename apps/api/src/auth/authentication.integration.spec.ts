@@ -99,6 +99,7 @@ describe('authentication (E1-T01)', () => {
         isPlatformAdmin: false,
       },
       activeOrganization: null,
+      organizations: [],
     });
   });
 

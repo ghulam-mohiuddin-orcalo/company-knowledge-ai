@@ -1,8 +1,10 @@
 import 'reflect-metadata';
 import { loadApiConfigOrExit, loadEnvFileIfPresent } from '@cka/config';
 import { EMBEDDING_DIMENSIONS } from '@cka/database';
+import { JsonLogger } from '@cka/observability';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
+import { configureApp } from './configure-app.js';
 
 async function bootstrap(): Promise<void> {
   // Fail fast on missing/invalid configuration before anything starts.
@@ -16,7 +18,16 @@ async function bootstrap(): Promise<void> {
     process.exit(1);
   }
 
-  const app = await NestFactory.create(AppModule.forRoot(apiConfig));
+  const logger = new JsonLogger(
+    apiConfig.config.app.logLevel,
+    undefined,
+    'api',
+  );
+  const app = await NestFactory.create(AppModule.forRoot(apiConfig), {
+    logger,
+    bodyParser: true,
+  });
+  configureApp(app, apiConfig.config, logger);
   app.enableShutdownHooks();
   await app.listen(apiConfig.config.app.port);
 }

@@ -6,25 +6,12 @@ import {
 import { Authorize } from '../authorization/authorize.decorator.js';
 import { ApiError } from '../common/api-error.js';
 import { OrganizationsRepository } from '../organizations/organizations.repository.js';
-import type { MembershipRole } from '../tenancy/memberships.repository.js';
+import { MembershipsRepository } from '../tenancy/memberships.repository.js';
 import type { Principal, TenantRequest } from '../tenancy/principal.js';
 import { readOrganizationHeader } from '../tenancy/organization-header.js';
 import { TenantContextService } from '../tenancy/tenant-context.service.js';
-
-export interface MeResponse {
-  user: {
-    id: string;
-    email: string;
-    displayName: string | null;
-    isPlatformAdmin: boolean;
-  };
-  activeOrganization: {
-    id: string;
-    name: string;
-    membershipId: string;
-    role: MembershipRole;
-  } | null;
-}
+import type { MeResponse } from '@cka/contracts';
+export type { MeResponse };
 
 @Authorize('AUTHENTICATED')
 @Controller('v1/me')
@@ -32,6 +19,7 @@ export class MeController {
   constructor(
     private readonly tenantContext: TenantContextService,
     private readonly organizations: OrganizationsRepository,
+    private readonly memberships: MembershipsRepository,
   ) {}
 
   /**
@@ -52,6 +40,7 @@ export class MeController {
       if (requested !== undefined || !(error instanceof ApiError)) throw error;
     }
 
+    const memberships = await this.memberships.listForUser(user.userId);
     const organization = principal
       ? await this.organizations.findById(principal.organizationId)
       : undefined;
@@ -71,6 +60,12 @@ export class MeController {
               role: principal.role,
             }
           : null,
+      organizations: memberships.map((m) => ({
+        id: m.organizationId,
+        name: m.organizationName,
+        role: m.role,
+        status: m.organizationStatus,
+      })),
     };
   }
 }

@@ -14,6 +14,7 @@ import {
   pingDatabase,
 } from '@cka/database';
 import { Public } from '../auth/public.decorator.js';
+import { SkipRateLimit } from '../rate-limit/rate-limit.decorators.js';
 import { DATABASE_POOL } from '../database/database.module.js';
 
 const READINESS_TIMEOUT_MS = 2000;
@@ -26,6 +27,7 @@ export interface ReadinessResponse {
 }
 
 @Public()
+@SkipRateLimit()
 @Controller()
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);

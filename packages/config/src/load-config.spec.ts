@@ -171,6 +171,7 @@ describe('loadConfig', () => {
     const config = loadConfig({
       ...validEnv,
       AI_API_KEY: 'ai-key-should-not-leak',
+      METRICS_TOKEN: 'metrics-token-should-not-leak',
     });
     const printed = [
       JSON.stringify(config),
@@ -182,6 +183,7 @@ describe('loadConfig', () => {
       expect(output).not.toContain(DB_PASSWORD);
       expect(output).not.toContain(S3_SECRET);
       expect(output).not.toContain('ai-key-should-not-leak');
+      expect(output).not.toContain('metrics-token-should-not-leak');
       expect(output).toContain('[REDACTED]');
     }
   });

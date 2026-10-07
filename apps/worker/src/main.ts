@@ -7,6 +7,7 @@ import {
   pingDatabase,
 } from '@cka/database';
 import { Logger } from '@nestjs/common';
+import { JsonLogger } from '@cka/observability';
 import { NestFactory } from '@nestjs/core';
 import { WorkerLoop } from './worker-loop.js';
 import { WorkerModule } from './worker.module.js';
@@ -19,6 +20,8 @@ async function bootstrap(): Promise<void> {
   loadEnvFileIfPresent(new URL('../../../.env', import.meta.url));
   const workerConfig = loadWorkerConfigOrExit();
   const { config, embedding } = workerConfig;
+  const jsonLogger = new JsonLogger(config.app.logLevel, undefined, 'worker');
+  Logger.overrideLogger(jsonLogger);
   const logger = new Logger('Worker');
 
   // The vector column has a fixed dimension; a different model needs a migration.
@@ -46,6 +49,7 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.createApplicationContext(
     WorkerModule.forRoot(workerConfig),
+    { logger: jsonLogger },
   );
   app.enableShutdownHooks();
   app.get(WorkerLoop).start();

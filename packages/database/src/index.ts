@@ -4,8 +4,14 @@ export {
   createDatabase,
   createDatabasePool,
   describeDatabaseError,
+  isDatabaseUnavailableError,
   pingDatabase,
   type Database,
   type DatabasePool,
 } from './client.js';
 export { runMigrations } from './migrate.js';
+export {
+  type AuditAction,
+  type AuditEvent,
+  recordAuditEvent,
+} from './audit.js';

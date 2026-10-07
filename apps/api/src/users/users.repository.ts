@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type Database, users } from '@cka/database';
+import { type Database, recordAuditEvent, users } from '@cka/database';
+import { getLogContext } from '@cka/observability';
 import { eq } from 'drizzle-orm';
 import { DATABASE } from '../database/database.module.js';
 
@@ -23,16 +24,31 @@ export class UsersRepository {
     return user;
   }
 
-  /** Inserts the user unless the subject already exists (concurrent first sign-ins). */
+  /**
+   * Inserts the user unless the subject already exists (concurrent first
+   * sign-ins); a new user is audited as USER_PROVISIONED.
+   */
   async insertIfAbsent(input: {
     authSubject: string;
     email: string;
     displayName: string | null;
-  }): Promise<void> {
-    await this.db
+  }): Promise<boolean> {
+    const inserted = await this.db
       .insert(users)
       .values(input)
-      .onConflictDoNothing({ target: users.authSubject });
+      .onConflictDoNothing({ target: users.authSubject })
+      .returning({ id: users.id });
+    if (inserted[0]) {
+      await recordAuditEvent(this.db, {
+        action: 'USER_PROVISIONED',
+        organizationId: null,
+        actorUserId: inserted[0].id,
+        targetType: 'user',
+        targetId: inserted[0].id,
+        requestId: getLogContext().requestId,
+      });
+    }
+    return inserted.length > 0;
   }
 
   async updateProfile(

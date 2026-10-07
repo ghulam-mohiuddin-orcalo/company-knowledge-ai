@@ -12,7 +12,9 @@ import {
   ingestionJobs,
 } from '@cka/database';
 import { documentObjectKey, type ObjectStorage } from '@cka/storage';
+import { Logger } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
+import { JsonLogger } from '@cka/observability';
 import { asc, eq, sql } from 'drizzle-orm';
 import { makeDocx, makePdf } from '@cka/ingestion/fixtures';
 import { seedDocument, seedTenant } from '../testing/seed.js';
@@ -320,6 +322,34 @@ describe('end-to-end ingestion pipeline (E3-T07)', () => {
     expect((await chunksOf(seeded.documentId)).map((c) => c.content)).toEqual([
       text,
     ]);
+  });
+
+  it('logs each job with its correlation IDs and no document text (E8-T01)', async () => {
+    const lines: string[] = [];
+    Logger.overrideLogger(
+      new JsonLogger('log', (line) => lines.push(line), 'worker'),
+    );
+    try {
+      const seeded = await enqueue(
+        TXT,
+        Buffer.from('Confidential merger codename Bluebird.'),
+      );
+      await processor.processNext();
+
+      const entry = lines
+        .map((l) => JSON.parse(l) as Record<string, unknown>)
+        .find((l) => String(l.msg).startsWith('Ingestion succeeded'));
+      expect(entry).toMatchObject({
+        service: 'worker',
+        context: 'IngestionProcessor',
+        jobId: seeded.jobId,
+        documentId: seeded.documentId,
+        organizationId: tenant.organizationId,
+      });
+      expect(lines.join('\n')).not.toMatch(/Bluebird|merger/);
+    } finally {
+      Logger.overrideLogger(false);
+    }
   });
 
   it('reports an idle queue', async () => {

@@ -1,5 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type Database, documents, ingestionJobs, users } from '@cka/database';
+import {
+  type Database,
+  documents,
+  ingestionJobs,
+  recordAuditEvent,
+  users,
+} from '@cka/database';
+import { getLogContext } from '@cka/observability';
 import { and, desc, eq, inArray, lt, notInArray, or } from 'drizzle-orm';
 import { DATABASE } from '../database/database.module.js';
 import type { TenantScope } from '../tenancy/tenant-scope.js';
@@ -88,6 +95,15 @@ export class DocumentsRepository {
         documentId: input.id,
         idempotencyKey: `document:${input.id}:ingest`,
       });
+      await recordAuditEvent(tx, {
+        action: 'DOCUMENT_UPLOADED',
+        organizationId: scope.organizationId,
+        actorUserId: input.uploadedBy,
+        targetType: 'document',
+        targetId: input.id,
+        metadata: { mimeType: input.mimeType, sizeBytes: input.sizeBytes },
+        requestId: getLogContext().requestId,
+      });
     });
     return (await this.findActiveById(scope, input.id))!;
   }
@@ -163,6 +179,7 @@ export class DocumentsRepository {
   async markDeletingById(
     scope: TenantScope,
     documentId: string,
+    actorUserId: string,
   ): Promise<boolean> {
     return this.db.transaction(async (tx) => {
       const updated = await tx
@@ -187,6 +204,14 @@ export class DocumentsRepository {
             inArray(ingestionJobs.status, ['QUEUED']),
           ),
         );
+      await recordAuditEvent(tx, {
+        action: 'DOCUMENT_DELETED',
+        organizationId: scope.organizationId,
+        actorUserId,
+        targetType: 'document',
+        targetId: documentId,
+        requestId: getLogContext().requestId,
+      });
       return true;
     });
   }

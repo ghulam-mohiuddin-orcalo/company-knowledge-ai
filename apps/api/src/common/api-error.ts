@@ -15,6 +15,9 @@ export type ApiErrorCode =
   | 'DOCUMENT_EMPTY'
   | 'AI_PROVIDER_UNAVAILABLE'
   | 'SOURCE_UNAVAILABLE'
+  | 'RATE_LIMITED'
+  | 'PAYLOAD_TOO_LARGE'
+  | 'SERVICE_UNAVAILABLE'
   | 'INTERNAL_ERROR';
 
 /**
@@ -26,6 +29,8 @@ export class ApiError extends Error {
     readonly status: HttpStatus,
     readonly code: ApiErrorCode,
     message: string,
+    /** Sent as Retry-After (seconds) for throttled requests. */
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = 'ApiError';

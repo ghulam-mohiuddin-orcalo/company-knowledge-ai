@@ -69,10 +69,40 @@ jobs:
 
       - run: pnpm test:integration
 
-      # E1-T06: cross-tenant isolation and route-protection suite. Required gate.
-      - name: Cross-tenant security suite
+      # E1-T06/E8-T04: cross-tenant, role-bypass, citation-tampering, prompt-injection,
+      # invalid-upload, safe-rendering and abuse-control regression suite. Required gate.
+      - name: Security regression suite
         run: pnpm test:security
 
       # E4-T04/E5-T06: offline retrieval + RAG regression against the committed baseline.
       - name: RAG evaluation regression gate
         run: pnpm eval
+
+  e2e:
+    name: Browser end-to-end and security (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # Local stack plus the mock OIDC provider (compose profile `auth`). The suite
+      # creates its own database and uses a deterministic stand-in AI server.
+      - name: Start PostgreSQL, object storage and mock OIDC provider
+        run: pnpm infra:up && pnpm infra:auth
+
+      - name: Install Chromium
+        run: pnpm --filter @cka/e2e exec playwright install --with-deps chromium
+
+      # E7 product flows and E8-T04 browser security checks (XSS, CSP, tampering).
+      - name: End-to-end suite
+        run: pnpm test:e2e

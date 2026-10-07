@@ -1,10 +1,8 @@
 import type { TenantFixtures } from './tenant-fixtures.js';
 
-export interface ApiResponse {
-  status: number;
-  body: unknown;
-  text: string;
-}
+import type { TestResponse } from './test-api.js';
+
+export type ApiResponse = TestResponse;
 
 /** Every identifying value of Org B (the "foreign" tenant) that must never reach Org A callers. */
 export function foreignTenantMarkers(fx: TenantFixtures): string[] {
