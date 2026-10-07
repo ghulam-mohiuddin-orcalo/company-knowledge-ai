@@ -21,6 +21,7 @@
     "db:migrate": "pnpm build:packages && pnpm --filter @cka/database db:migrate",
     "db:seed:demo": "pnpm build:packages && pnpm --filter @cka/database db:seed:demo",
     "db:provision": "pnpm build:packages && pnpm --filter @cka/database db:provision",
+    "db:studio": "pnpm --filter @cka/database exec drizzle-kit studio --config drizzle.studio.config.ts",
     "infra:up": "docker compose -f infra/docker/compose.yaml up -d --wait postgres object-storage && docker compose -f infra/docker/compose.yaml run --rm storage-init",
     "infra:auth": "docker compose -f infra/docker/compose.yaml --profile auth up -d --wait oidc",
     "infra:down": "docker compose -f infra/docker/compose.yaml down",

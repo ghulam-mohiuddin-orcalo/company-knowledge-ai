@@ -1,0 +1,17 @@
+# Store text files with LF in the repository and check them out with LF on
+# every platform, so Windows checkouts (core.autocrlf) do not show
+# line-ending-only changes.
+* text=auto eol=lf
+
+# Binary files: never convert line endings or diff as text.
+*.docx binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.zip binary
